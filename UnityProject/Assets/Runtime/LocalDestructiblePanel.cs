@@ -21,6 +21,10 @@ namespace Windsmoon.DesctructibleBoard
         private int _seed = 1;
         [SerializeField, Min(1)] 
         private int _maxFragmentCount = 300;
+        
+        [Header("Debug")]
+        [SerializeField]
+        private bool _enableDebugMode = false;
 
         [SerializeField, HideInInspector] 
         private List<DestructibleCell> _cellList = new List<DestructibleCell>();
@@ -34,11 +38,15 @@ namespace Windsmoon.DesctructibleBoard
         #region unity methods
         private void OnValidate()
         {
-            Generate();
+            if (_enableDebugMode)
+            {
+                Generate();
+            }
         }
 
         private void OnDrawGizmos()
         {
+
             Matrix4x4 previousMatrix = Gizmos.matrix;
             Color previousColor = Gizmos.color;
             Gizmos.matrix = transform.localToWorldMatrix;
@@ -46,6 +54,15 @@ namespace Windsmoon.DesctructibleBoard
             Gizmos.color = Color.white;
             Gizmos.DrawWireCube(Vector3.zero, new Vector3(_width, _height, _thickness));
 
+            Gizmos.matrix = previousMatrix;
+            Gizmos.color = previousColor;
+            
+            if (_enableDebugMode == false)
+            {
+                return;
+            }
+            
+            Gizmos.matrix = transform.localToWorldMatrix;
             Gizmos.color = Color.cyan;
             float siteRadius = Mathf.Max(0.01f, _fragmentSize * 0.08f);
             foreach (DestructibleCell cell in _cellList)
