@@ -103,7 +103,7 @@ namespace Windsmoon.DesctructibleBoard
 
         private void GenerateDelaunayTriangles()
         {
-            DelaunayTrianglator.Generate(_siteList, _delaunayTriangleList);
+            DelaunayTriangulator.Generate(_siteList, _delaunayTriangleList);
         }
         #endregion
     }
