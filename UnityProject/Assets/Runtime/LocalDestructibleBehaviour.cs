@@ -70,6 +70,17 @@ namespace Windsmoon.DesctructibleBoard
                 Gizmos.DrawSphere(new Vector3(cell.Site.x, cell.Site.y, 0f), siteRadius);
             }
 
+            Gizmos.color = Color.yellow;
+            foreach (DelaunayTriangle triangle in _delaunayTriangleList)
+            {
+                Vector2 a = _siteList[triangle.A];
+                Vector2 b = _siteList[triangle.B];
+                Vector2 c = _siteList[triangle.C];
+                Gizmos.DrawLine(new Vector3(a.x, a.y, 0f), new Vector3(b.x, b.y, 0f));
+                Gizmos.DrawLine(new Vector3(b.x, b.y, 0f), new Vector3(c.x, c.y, 0f));
+                Gizmos.DrawLine(new Vector3(c.x, c.y, 0f), new Vector3(a.x, a.y, 0f));
+            }
+
             Gizmos.matrix = previousMatrix;
             Gizmos.color = previousColor;
         }
@@ -82,7 +93,8 @@ namespace Windsmoon.DesctructibleBoard
             _siteList ??= new List<Vector2>(_maxFragmentCount);
             _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
             
-            GenerateSamplePoints();    
+            GenerateSamplePoints();
+            GenerateDelaunayTriangles();
         }
         
         private void GenerateSamplePoints()
