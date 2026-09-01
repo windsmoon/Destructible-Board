@@ -17,13 +17,14 @@ namespace Windsmoon.DesctructibleBoard
         [Header("Fragments")]
         [SerializeField, Min(0.01f)] 
         private float _fragmentSize = 0.5f;
-        [SerializeField] 
+        [SerializeField, Min(1)] 
         private int _seed = 1;
         [SerializeField, Min(1)] 
         private int _maxFragmentCount = 300;
 
         [SerializeField, HideInInspector] 
         private List<DestructibleCell> _cellList = new List<DestructibleCell>();
+        private List<Vector2> _siteListCache = new List<Vector2>();
         #endregion
 
         #region properties
@@ -49,6 +50,21 @@ namespace Windsmoon.DesctructibleBoard
         public void Init()
         {
             _cellList.Clear();
+            PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteListCache);
+            if (_cellList.Capacity < _siteListCache.Count)
+            {
+                _cellList.Capacity = _siteListCache.Count;
+            }
+
+            foreach (Vector2 site in _siteListCache)
+            {
+                DestructibleCell destructibleCell = new DestructibleCell()
+                {
+                    Id = _cellList.Count,
+                    Site = site,
+                };
+                _cellList.Add(destructibleCell);
+            }
         }
         #endregion
     }

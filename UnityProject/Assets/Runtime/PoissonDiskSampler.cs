@@ -49,7 +49,7 @@ namespace Windsmoon.DesctructibleBoard
             Vector2 firstPoint = new Vector2(
                 Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, s_random.NextFloat()),
                 Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, s_random.NextFloat()));
-            AddPoint(firstPoint, halfPanelSize, gridCellSize, pointList, s_activePointIndexList, grid);
+            AddPoint(firstPoint, halfPanelSize, gridCellSize, gridWidth, gridHeight, pointList, s_activePointIndexList, grid);
 
             float minDistanceSquared = minDistance * minDistance;
             while (s_activePointIndexList.Count > 0 && pointList.Count < maxPointCount)
@@ -70,7 +70,7 @@ namespace Windsmoon.DesctructibleBoard
                         continue;
                     }
 
-                    AddPoint(candidate, halfPanelSize, gridCellSize, pointList, s_activePointIndexList, grid);
+                    AddPoint(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, pointList, s_activePointIndexList, grid);
                     candidateAccepted = true;
                     break;
                 }
@@ -106,15 +106,15 @@ namespace Windsmoon.DesctructibleBoard
             return s_gridCache;
         }
 
-        private static void AddPoint(Vector2 point, Vector2 halfPanelSize, float gridCellSize, List<Vector2> points, List<int> activePointIndices, int[][] grid)
+        private static void AddPoint(Vector2 point, Vector2 halfPanelSize, float gridCellSize, int gridWidth, int gridHeight, List<Vector2> points, List<int> activePointIndices, int[][] grid)
         {
             int pointIndex = points.Count;
             points.Add(point);
             activePointIndices.Add(pointIndex);
 
             Vector2 gridPosition = (point + halfPanelSize) / gridCellSize;
-            int gridX = Mathf.FloorToInt(gridPosition.x);
-            int gridY = Mathf.FloorToInt(gridPosition.y);
+            int gridX = Mathf.Clamp(Mathf.FloorToInt(gridPosition.x), 0, gridWidth - 1);
+            int gridY = Mathf.Clamp(Mathf.FloorToInt(gridPosition.y), 0, gridHeight - 1);
             grid[gridX][gridY] = pointIndex + 1;
         }
 
