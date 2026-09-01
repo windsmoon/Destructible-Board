@@ -27,8 +27,9 @@ namespace Windsmoon.DesctructibleBoard
         private bool _enableDebugMode = false;
 
         // [SerializeField, HideInInspector] 
-        private List<DestructibleCell> _cellList = new List<DestructibleCell>();
-        private List<Vector2> _siteListCache = new List<Vector2>();
+        private List<DestructibleCell> _cellList;
+        private List<Vector2> _siteList;
+        private List<DelaunayTriangle> _delaunayTriangleList;
         #endregion
 
         #region properties
@@ -46,7 +47,6 @@ namespace Windsmoon.DesctructibleBoard
 
         private void OnDrawGizmos()
         {
-
             Matrix4x4 previousMatrix = Gizmos.matrix;
             Color previousColor = Gizmos.color;
             Gizmos.matrix = transform.localToWorldMatrix;
@@ -78,19 +78,19 @@ namespace Windsmoon.DesctructibleBoard
         #region methods
         public void Generate()
         {
+            _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
+            _siteList ??= new List<Vector2>(_maxFragmentCount);
+            _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
+            
             GenerateSamplePoints();    
         }
         
         private void GenerateSamplePoints()
         {
             _cellList.Clear();
-            PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteListCache);
-            if (_cellList.Capacity < _siteListCache.Count)
-            {
-                _cellList.Capacity = _siteListCache.Count;
-            }
+            PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteList);
 
-            foreach (Vector2 site in _siteListCache)
+            foreach (Vector2 site in _siteList)
             {
                 DestructibleCell destructibleCell = new DestructibleCell()
                 {
@@ -99,6 +99,11 @@ namespace Windsmoon.DesctructibleBoard
                 };
                 _cellList.Add(destructibleCell);
             }
+        }
+
+        private void GenerateDelaunayTriangles()
+        {
+            DelaunayTrianglator.Generate(_siteList, _delaunayTriangleList);
         }
         #endregion
     }
