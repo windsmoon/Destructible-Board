@@ -31,12 +31,24 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region unity methods
+        private void Awake()
+        {
+            Init();
+        }
+
         private void OnDrawGizmos()
         {
             Matrix4x4 previousMatrix = Gizmos.matrix;
             Gizmos.matrix = transform.localToWorldMatrix;
             Gizmos.DrawWireCube(Vector3.zero, new Vector3(_width, _height, _thickness));
             Gizmos.matrix = previousMatrix;
+        }
+        #endregion
+
+        #region methods
+        public void Init()
+        {
+            _cellList.Clear();
         }
         #endregion
     }
