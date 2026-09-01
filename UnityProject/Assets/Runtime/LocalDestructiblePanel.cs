@@ -26,7 +26,7 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private bool _enableDebugMode = false;
 
-        [SerializeField, HideInInspector] 
+        // [SerializeField, HideInInspector] 
         private List<DestructibleCell> _cellList = new List<DestructibleCell>();
         private List<Vector2> _siteListCache = new List<Vector2>();
         #endregion
