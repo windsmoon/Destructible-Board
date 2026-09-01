@@ -32,22 +32,39 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region unity methods
-        private void Awake()
+        private void OnValidate()
         {
-            Init();
+            Generate();
         }
 
         private void OnDrawGizmos()
         {
             Matrix4x4 previousMatrix = Gizmos.matrix;
+            Color previousColor = Gizmos.color;
             Gizmos.matrix = transform.localToWorldMatrix;
+
+            Gizmos.color = Color.white;
             Gizmos.DrawWireCube(Vector3.zero, new Vector3(_width, _height, _thickness));
+
+            Gizmos.color = Color.cyan;
+            float siteRadius = Mathf.Max(0.01f, _fragmentSize * 0.08f);
+            foreach (DestructibleCell cell in _cellList)
+            {
+                Gizmos.DrawSphere(new Vector3(cell.Site.x, cell.Site.y, 0f), siteRadius);
+            }
+
             Gizmos.matrix = previousMatrix;
+            Gizmos.color = previousColor;
         }
         #endregion
 
         #region methods
-        public void Init()
+        public void Generate()
+        {
+            GenerateSamplePoints();    
+        }
+        
+        private void GenerateSamplePoints()
         {
             _cellList.Clear();
             PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteListCache);
