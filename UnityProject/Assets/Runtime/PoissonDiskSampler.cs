@@ -7,67 +7,106 @@ namespace Windsmoon.DesctructibleBoard
     {
         #region fields
         private const int CandidateAttempts = 30;
+        private static int[][] s_gridCache;
+        private static readonly List<int> s_activePointIndexList = new List<int>();
+        private static Unity.Mathematics.Random s_random;
         #endregion
 
         #region methods
-        public static List<Vector2> Generate(Vector2 panelSize, float minDistance, int seed, int maxPointCount)
+        public static void Generate(Vector2 panelSize, float minDistance, int seed, int maxPointCount, List<Vector2> pointList)
         {
-            var points = new List<Vector2>();
+            if (pointList == null)
+            {
+                throw new System.ArgumentNullException(nameof(pointList));
+            }
+
+            pointList.Clear();
             if (panelSize.x <= 0f || panelSize.y <= 0f || minDistance <= 0f || maxPointCount <= 0)
             {
-                return points;
+                return;
+            }
+
+            if (pointList.Capacity < maxPointCount)
+            {
+                pointList.Capacity = maxPointCount;
             }
 
             float gridCellSize = minDistance / Mathf.Sqrt(2f);
             int gridWidth = Mathf.CeilToInt(panelSize.x / gridCellSize);
             int gridHeight = Mathf.CeilToInt(panelSize.y / gridCellSize);
-            var grid = new int[gridWidth * gridHeight]; // TODO GC
-            var activePointIndices = new List<int>();
-            var random = new System.Random(seed); // TODO GC
+            int[][] grid = GetGrid(gridWidth, gridHeight);
+            s_activePointIndexList.Clear();
+            if (s_activePointIndexList.Capacity < maxPointCount)
+            {
+                s_activePointIndexList.Capacity = maxPointCount;
+            }
+
+            uint randomState = unchecked((uint)seed) + 0x9E3779B9u;
+            s_random.state = randomState == 0u ? 1u : randomState;
             Vector2 halfPanelSize = panelSize * 0.5f;
 
             // Start Bridson's algorithm with one random active point inside the panel.
             Vector2 firstPoint = new Vector2(
-                Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, (float)random.NextDouble()),
-                Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, (float)random.NextDouble()));
-            AddPoint(firstPoint, halfPanelSize, gridCellSize, gridWidth, points, activePointIndices, grid);
+                Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, s_random.NextFloat()),
+                Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, s_random.NextFloat()));
+            AddPoint(firstPoint, halfPanelSize, gridCellSize, pointList, s_activePointIndexList, grid);
 
             float minDistanceSquared = minDistance * minDistance;
-            while (activePointIndices.Count > 0 && points.Count < maxPointCount)
+            while (s_activePointIndexList.Count > 0 && pointList.Count < maxPointCount)
             {
-                int activeListIndex = random.Next(activePointIndices.Count);
-                Vector2 sourcePoint = points[activePointIndices[activeListIndex]];
+                int activeListIndex = s_random.NextInt(0, s_activePointIndexList.Count);
+                Vector2 sourcePoint = pointList[s_activePointIndexList[activeListIndex]];
                 bool candidateAccepted = false;
 
                 for (int attempt = 0; attempt < CandidateAttempts; attempt++)
                 {
-                    float angle = (float)random.NextDouble() * Mathf.PI * 2f;
-                    float radius = minDistance * (1f + (float)random.NextDouble());
+                    float angle = s_random.NextFloat() * Mathf.PI * 2f;
+                    float radius = minDistance * (1f + s_random.NextFloat());
                     Vector2 candidate = sourcePoint + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
 
                     if (IsInsidePanel(candidate, halfPanelSize) == false ||
-                        IsFarEnough(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, minDistanceSquared, points, grid) == false)
+                        IsFarEnough(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, minDistanceSquared, pointList, grid) == false)
                     {
                         continue;
                     }
 
-                    AddPoint(candidate, halfPanelSize, gridCellSize, gridWidth, points, activePointIndices, grid);
+                    AddPoint(candidate, halfPanelSize, gridCellSize, pointList, s_activePointIndexList, grid);
                     candidateAccepted = true;
                     break;
                 }
 
                 if (candidateAccepted == false)
                 {
-                    int lastIndex = activePointIndices.Count - 1;
-                    activePointIndices[activeListIndex] = activePointIndices[lastIndex];
-                    activePointIndices.RemoveAt(lastIndex);
+                    int lastIndex = s_activePointIndexList.Count - 1;
+                    s_activePointIndexList[activeListIndex] = s_activePointIndexList[lastIndex];
+                    s_activePointIndexList.RemoveAt(lastIndex);
+                }
+            }
+        }
+
+        private static int[][] GetGrid(int gridWidth, int gridHeight)
+        {
+            if (s_gridCache == null || s_gridCache.Length < gridWidth)
+            {
+                System.Array.Resize(ref s_gridCache, gridWidth);
+            }
+
+            for (int gridX = 0; gridX < gridWidth; gridX++)
+            {
+                if (s_gridCache[gridX] == null || s_gridCache[gridX].Length < gridHeight)
+                {
+                    s_gridCache[gridX] = new int[gridHeight];
+                }
+                else
+                {
+                    System.Array.Clear(s_gridCache[gridX], 0, gridHeight);
                 }
             }
 
-            return points;
+            return s_gridCache;
         }
 
-        private static void AddPoint(Vector2 point, Vector2 halfPanelSize, float gridCellSize, int gridWidth, List<Vector2> points, List<int> activePointIndices, int[] grid)
+        private static void AddPoint(Vector2 point, Vector2 halfPanelSize, float gridCellSize, List<Vector2> points, List<int> activePointIndices, int[][] grid)
         {
             int pointIndex = points.Count;
             points.Add(point);
@@ -76,7 +115,7 @@ namespace Windsmoon.DesctructibleBoard
             Vector2 gridPosition = (point + halfPanelSize) / gridCellSize;
             int gridX = Mathf.FloorToInt(gridPosition.x);
             int gridY = Mathf.FloorToInt(gridPosition.y);
-            grid[gridY * gridWidth + gridX] = pointIndex + 1;
+            grid[gridX][gridY] = pointIndex + 1;
         }
 
         private static bool IsInsidePanel(Vector2 point, Vector2 halfPanelSize)
@@ -85,7 +124,7 @@ namespace Windsmoon.DesctructibleBoard
                    point.y >= -halfPanelSize.y && point.y < halfPanelSize.y;
         }
 
-        private static bool IsFarEnough(Vector2 candidate, Vector2 halfPanelSize, float gridCellSize, int gridWidth, int gridHeight, float minimumDistanceSquared, List<Vector2> points, int[] grid)
+        private static bool IsFarEnough(Vector2 candidate, Vector2 halfPanelSize, float gridCellSize, int gridWidth, int gridHeight, float minimumDistanceSquared, List<Vector2> points, int[][] grid)
         {
             Vector2 gridPosition = (candidate + halfPanelSize) / gridCellSize;
             int candidateGridX = Mathf.FloorToInt(gridPosition.x);
@@ -100,7 +139,7 @@ namespace Windsmoon.DesctructibleBoard
             {
                 for (int gridX = minGridX; gridX <= maxGridX; gridX++)
                 {
-                    int storedPointIndex = grid[gridY * gridWidth + gridX] - 1;
+                    int storedPointIndex = grid[gridX][gridY] - 1;
                     if (storedPointIndex >= 0 && (points[storedPointIndex] - candidate).sqrMagnitude < minimumDistanceSquared)
                     {
                         return false;
@@ -110,6 +149,7 @@ namespace Windsmoon.DesctructibleBoard
 
             return true;
         }
+
         #endregion
     }
 }
