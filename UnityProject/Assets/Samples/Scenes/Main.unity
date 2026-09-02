@@ -240,11 +240,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03b6707cc2cf46a993aed45f3c120a38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Windsmoon.DesctructibleBoard.LocalDestructiblePanel
-  _width: 38.4
+  _width: 40
   _height: 19.2
   _thickness: 7
-  _fragmentSize: 1.55
-  _seed: 180
+  _fragmentSize: 0.98
+  _seed: 222
   _maxFragmentCount: 1000
   _enableDebugMode: 1
 --- !u!4 &1732937085

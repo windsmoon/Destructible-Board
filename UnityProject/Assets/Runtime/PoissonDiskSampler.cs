@@ -13,14 +13,8 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
-        public static void Generate(Vector2 panelSize, float minDistance, int seed, int maxPointCount, List<Vector2> pointList)
+        internal static void Generate(Vector2 panelSize, float minDistance, int seed, int maxPointCount, List<Vector2> pointList)
         {
-            if (pointList == null)
-            {
-                throw new System.ArgumentNullException(nameof(pointList));
-            }
-
-            pointList.Clear();
             if (panelSize.x <= 0f || panelSize.y <= 0f || minDistance <= 0f || maxPointCount <= 0)
             {
                 return;

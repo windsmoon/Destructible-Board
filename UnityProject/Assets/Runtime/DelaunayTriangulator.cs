@@ -6,19 +6,8 @@ namespace Windsmoon.DesctructibleBoard
     public static class DelaunayTriangulator
     {
         #region methods
-        public static void Generate(IReadOnlyList<Vector2> siteList, List<DelaunayTriangle> outputList)
+        internal static void Generate(IReadOnlyList<Vector2> siteList, List<DelaunayTriangle> outputList)
         {
-            if (siteList == null)
-            {
-                throw new System.ArgumentNullException(nameof(siteList));
-            }
-
-            if (outputList == null)
-            {
-                throw new System.ArgumentNullException(nameof(outputList));
-            }
-
-            outputList.Clear();
             if (siteList.Count < 3)
             {
                 return;

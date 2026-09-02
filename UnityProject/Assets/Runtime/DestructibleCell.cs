@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
@@ -9,6 +10,7 @@ namespace Windsmoon.DesctructibleBoard
         #region fields
         public int Id;
         public Vector2 Site;
+        public List<Vector2> Polygon;
         #endregion
     }
 }

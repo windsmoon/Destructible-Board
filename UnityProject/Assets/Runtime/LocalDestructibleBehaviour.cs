@@ -25,6 +25,10 @@ namespace Windsmoon.DesctructibleBoard
         [Header("Debug")]
         [SerializeField]
         private bool _enableDebugMode = false;
+        [SerializeField]
+        private bool _enableDelaunayDebug = false;
+        [SerializeField]
+        private bool _enableVoronoiDebug = false;
 
         // [SerializeField, HideInInspector] 
         private List<DestructibleCell> _cellList;
@@ -54,16 +58,69 @@ namespace Windsmoon.DesctructibleBoard
             Gizmos.color = Color.white;
             Gizmos.DrawWireCube(Vector3.zero, new Vector3(_width, _height, _thickness));
 
-            Gizmos.matrix = previousMatrix;
-            Gizmos.color = previousColor;
-            
-            if (_enableDebugMode == false)
+            if (_enableDebugMode)
             {
-                return;
+                if (_enableDelaunayDebug)
+                {
+                    DebugDelaunay();
+
+                }
+
+                if (_enableVoronoiDebug)
+                {
+                    DebugVoronoi();  
+                }
+
+                Gizmos.matrix = previousMatrix;
+                Gizmos.color = previousColor;
             }
+        }
+        #endregion
+
+        #region methods
+        public void Generate()
+        {
+            _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
+            _siteList ??= new List<Vector2>(_maxFragmentCount);
+            _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
+
+            _cellList.Clear();
+            _siteList.Clear();
+            _delaunayTriangleList.Clear();
             
-            Gizmos.matrix = transform.localToWorldMatrix;
-            Gizmos.color = Color.cyan;
+            GenerateSamplePoints();
+            GenerateDelaunayTriangles();
+            GenerateVoronoiCells();
+        }
+        
+        private void GenerateSamplePoints()
+        {
+            PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteList);
+
+            foreach (Vector2 site in _siteList)
+            {
+                DestructibleCell destructibleCell = new DestructibleCell()
+                {
+                    Id = _cellList.Count,
+                    Site = site,
+                    Polygon = new List<Vector2>(),
+                };
+                _cellList.Add(destructibleCell);
+            }
+        }
+
+        private void GenerateDelaunayTriangles()
+        {
+            DelaunayTriangulator.Generate(_siteList, _delaunayTriangleList);
+        }
+
+        private void GenerateVoronoiCells()
+        {
+            VoronoiGenerator.Generate(new Vector2(_width, _height), _siteList, _delaunayTriangleList, _cellList);
+        }
+
+        private void DebugDelaunay()
+        {
             float siteRadius = Mathf.Max(0.01f, _fragmentSize * 0.08f);
             foreach (DestructibleCell cell in _cellList)
             {
@@ -80,42 +137,25 @@ namespace Windsmoon.DesctructibleBoard
                 Gizmos.DrawLine(new Vector3(b.x, b.y, 0f), new Vector3(c.x, c.y, 0f));
                 Gizmos.DrawLine(new Vector3(c.x, c.y, 0f), new Vector3(a.x, a.y, 0f));
             }
-
-            Gizmos.matrix = previousMatrix;
-            Gizmos.color = previousColor;
         }
-        #endregion
 
-        #region methods
-        public void Generate()
+        private void DebugVoronoi()
         {
-            _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
-            _siteList ??= new List<Vector2>(_maxFragmentCount);
-            _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
-            
-            GenerateSamplePoints();
-            GenerateDelaunayTriangles();
-        }
-        
-        private void GenerateSamplePoints()
-        {
-            _cellList.Clear();
-            PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteList);
-
-            foreach (Vector2 site in _siteList)
+            Gizmos.color = Color.green;
+            foreach (DestructibleCell cell in _cellList)
             {
-                DestructibleCell destructibleCell = new DestructibleCell()
+                if (cell.Polygon == null || cell.Polygon.Count < 2)
                 {
-                    Id = _cellList.Count,
-                    Site = site,
-                };
-                _cellList.Add(destructibleCell);
-            }
-        }
+                    continue;
+                }
 
-        private void GenerateDelaunayTriangles()
-        {
-            DelaunayTriangulator.Generate(_siteList, _delaunayTriangleList);
+                for (int pointIndex = 0; pointIndex < cell.Polygon.Count; pointIndex++)
+                {
+                    Vector2 current = cell.Polygon[pointIndex];
+                    Vector2 next = cell.Polygon[(pointIndex + 1) % cell.Polygon.Count];
+                    Gizmos.DrawLine(new Vector3(current.x, current.y, 0f), new Vector3(next.x, next.y, 0f));
+                }
+            } 
         }
         #endregion
     }
