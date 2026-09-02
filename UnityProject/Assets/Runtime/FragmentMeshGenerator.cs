@@ -55,11 +55,13 @@ namespace Windsmoon.DesctructibleBoard
 
                 vertices[frontVertexIndex] = new Vector3(point.x, point.y, halfThickness);
                 normals[frontVertexIndex] = Vector3.forward;
-                uv[frontVertexIndex] = point; // local xy pos as uv
+                // Use panel-local XY directly as planar UVs so adjacent fragments
+                // sample the same texture coordinates along their shared boundary.
+                uv[frontVertexIndex] = point;
 
                 vertices[backVertexIndex] = new Vector3(point.x, point.y, -halfThickness);
                 normals[backVertexIndex] = Vector3.back;
-                uv[backVertexIndex] = point; // local xy pos as uv
+                uv[backVertexIndex] = point;
             }
         }
 
@@ -116,6 +118,13 @@ namespace Windsmoon.DesctructibleBoard
                     |                |
                 currentBack  ---- nextBack
                  */
+                
+                /*
+                 0 ---- 3
+                |     |
+                |     |
+                1 ---- 2
+                 */
                 vertices[vertexIndex] = new Vector3(current.x, current.y, halfThickness);
                 vertices[vertexIndex + 1] = new Vector3(current.x, current.y, -halfThickness);
                 vertices[vertexIndex + 2] = new Vector3(next.x, next.y, -halfThickness);
@@ -126,6 +135,8 @@ namespace Windsmoon.DesctructibleBoard
                 normals[vertexIndex + 2] = sideNormal;
                 normals[vertexIndex + 3] = sideNormal;
 
+                // Unwrap the side faces into one continuous strip. U accumulates
+                // edge length, while normalized V maps back to 0 and front to 1.
                 uv[vertexIndex] = new Vector2(stripU, 1f);
                 uv[vertexIndex + 1] = new Vector2(stripU, 0f);
                 uv[vertexIndex + 2] = new Vector2(nextStripU, 0f);
