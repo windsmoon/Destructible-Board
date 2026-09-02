@@ -291,6 +291,7 @@ MonoBehaviour:
   _fragmentSize: 1.56
   _seed: 606
   _maxFragmentCount: 1000
+  _material: {fileID: 2100000, guid: d397be2612841b047a396a90584efff0, type: 2}
   _enableDebugMode: 1
   _enableDelaunayDebug: 1
   _enableVoronoiDebug: 1
