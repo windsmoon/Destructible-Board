@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
-    [Serializable]
     public struct DestructibleCell
     {
         #region fields
@@ -15,8 +14,8 @@ namespace Windsmoon.DesctructibleBoard
         /// and expressed in panel-local XY coordinates.
         /// </summary>
         public List<Vector2> Polygon;
-        [NonSerialized]
         public Mesh Mesh;
+        public GameObject GameObject;
         #endregion
     }
 }

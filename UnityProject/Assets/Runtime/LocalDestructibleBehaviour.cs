@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,6 +22,8 @@ namespace Windsmoon.DesctructibleBoard
         private int _seed = 1;
         [SerializeField, Min(1)] 
         private int _maxFragmentCount = 300;
+        [SerializeField]
+        private Material _material;
         
         [Header("Debug")]
         [SerializeField]
@@ -36,6 +39,7 @@ namespace Windsmoon.DesctructibleBoard
         private List<DelaunayTriangle> _delaunayTriangleList;
         private int _fragmentVertexCount;
         private int _fragmentTriangleCount;
+        private Transform _root;
         #endregion
 
         #region properties
@@ -69,6 +73,11 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region unity methods
+        private void Awake()
+        {
+            Generate();
+        }
+
         private void OnValidate()
         {
             if (_enableDebugMode)
@@ -79,6 +88,7 @@ namespace Windsmoon.DesctructibleBoard
 
         private void OnDestroy()
         {
+            ReleaseGameObjects();
             ReleaseFragmentMeshes();
         }
 
@@ -117,6 +127,7 @@ namespace Windsmoon.DesctructibleBoard
             _siteList ??= new List<Vector2>(_maxFragmentCount);
             _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
 
+            ReleaseGameObjects();
             ReleaseFragmentMeshes();
             _cellList.Clear();
             _siteList.Clear();
@@ -132,6 +143,7 @@ namespace Windsmoon.DesctructibleBoard
             if (Application.isPlaying)
             {
                 GenerateFragmentMeshes();
+                CreateGameObjects();
             }
         }
         
@@ -186,6 +198,66 @@ namespace Windsmoon.DesctructibleBoard
                 // DestructibleCell is a value type, so persist the updated Mesh
                 // reference by assigning the modified copy back into the list.
                 _cellList[cellIndex] = cell;
+            }
+        }
+
+        private void CreateGameObjects()
+        {
+            GameObject fragmentRootObject = new GameObject("Fragments");
+            fragmentRootObject.layer = gameObject.layer;
+            _root = fragmentRootObject.transform;
+            _root.SetParent(transform, false);
+
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _cellList[cellIndex];
+                GameObject fragmentObject = new GameObject($"Fragment {cell.Id}");
+                fragmentObject.layer = gameObject.layer;
+                fragmentObject.transform.SetParent(_root, false);
+
+                MeshFilter meshFilter = fragmentObject.AddComponent<MeshFilter>();
+                meshFilter.sharedMesh = cell.Mesh;
+
+                MeshRenderer meshRenderer = fragmentObject.AddComponent<MeshRenderer>();
+                meshRenderer.sharedMaterial = _material;
+                cell.GameObject = fragmentObject;
+
+                // DestructibleCell is a value type, so persist the updated object
+                // reference by assigning the modified copy back into the list.
+                _cellList[cellIndex] = cell;
+            }
+        }
+
+        private void ReleaseGameObjects()
+        {
+            if (_cellList != null)
+            {
+                for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+                {
+                    DestructibleCell cell = _cellList[cellIndex];
+                    cell.GameObject = null;
+                    _cellList[cellIndex] = cell;
+                }
+            }
+
+            if (_root == null)
+            {
+                return;
+            }
+
+            GameObject fragmentRootObject = _root.gameObject;
+            _root = null;
+
+            if (Application.isPlaying)
+            {
+                // Disable immediately so repeated generation in the same frame does
+                // not leave the old fragments visible until deferred destruction.
+                fragmentRootObject.SetActive(false);
+                Destroy(fragmentRootObject);
+            }
+            else
+            {
+                DestroyImmediate(fragmentRootObject);
             }
         }
 
