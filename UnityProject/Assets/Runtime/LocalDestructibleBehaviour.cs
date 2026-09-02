@@ -38,6 +38,30 @@ namespace Windsmoon.DesctructibleBoard
 
         #region properties
         public IReadOnlyList<DestructibleCell> CellList => _cellList;
+        public int SamplePointCount => _siteList?.Count ?? 0;
+        public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
+        public int VoronoiRegionCount
+        {
+            get
+            {
+                if (_cellList == null)
+                {
+                    return 0;
+                }
+
+                int regionCount = 0;
+                for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+                {
+                    List<Vector2> polygon = _cellList[cellIndex].Polygon;
+                    if (polygon.Count >= 3)
+                    {
+                        regionCount++;
+                    }
+                }
+
+                return regionCount;
+            }
+        }
         #endregion
 
         #region unity methods
