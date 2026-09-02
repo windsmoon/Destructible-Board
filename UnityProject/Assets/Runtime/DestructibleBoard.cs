@@ -136,6 +136,7 @@ namespace Windsmoon.DesctructibleBoard
             GenerateSamplePoints();
             GenerateDelaunayTriangles();
             GenerateVoronoiCells();
+            GenerateNeighborGraph();
             CalculateFragmentMeshDebugInfo();
 
             // Editor validation only needs deterministic geometry data and counts.
@@ -166,6 +167,11 @@ namespace Windsmoon.DesctructibleBoard
         private void GenerateVoronoiCells()
         {
             VoronoiGenerator.Generate(new Vector2(_width, _height), _siteList, _delaunayTriangleList, _cellList);
+        }
+
+        private void GenerateNeighborGraph()
+        {
+            NeighborGraphBuilder.Generate(new Vector2(_width, _height), _delaunayTriangleList, _cellList);
         }
 
         private void CalculateFragmentMeshDebugInfo()
