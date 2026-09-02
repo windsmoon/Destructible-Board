@@ -37,6 +37,7 @@ namespace Windsmoon.DesctructibleBoard
         private List<DestructibleCell> _cellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
+        private readonly Dictionary<Collider, int> _cellIndexByCollider = new Dictionary<Collider, int>();
         private int _fragmentVertexCount;
         private int _fragmentTriangleCount;
         private Transform _root;
@@ -48,6 +49,7 @@ namespace Windsmoon.DesctructibleBoard
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
         public int FragmentVertexCount => _fragmentVertexCount;
         public int FragmentTriangleCount => _fragmentTriangleCount;
+        public int ColliderCount => _cellIndexByCollider.Count;
         public int VoronoiRegionCount
         {
             get
@@ -121,6 +123,18 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
+        public bool TryGetCell(Collider collider, out DestructibleCell cell)
+        {
+            if (collider != null && _cellIndexByCollider.TryGetValue(collider, out int cellIndex))
+            {
+                cell = _cellList[cellIndex];
+                return true;
+            }
+
+            cell = default;
+            return false;
+        }
+
         public void Generate()
         {
             _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
@@ -223,6 +237,13 @@ namespace Windsmoon.DesctructibleBoard
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
+                MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
+                meshCollider.convex = true;
+                meshCollider.sharedMesh = cell.Mesh;
+                cell.Collider = meshCollider;
+                // Site indices and cell-list indices are aligned during generation.
+                _cellIndexByCollider.Add(meshCollider, cellIndex);
+
                 // DestructibleCell is a value type, so persist the updated object
                 // reference by assigning the modified copy back into the list.
                 _cellList[cellIndex] = cell;
@@ -231,12 +252,15 @@ namespace Windsmoon.DesctructibleBoard
 
         private void ReleaseGameObjects()
         {
+            // Invalidate old lookups before deferred GameObject destruction.
+            _cellIndexByCollider.Clear();
             if (_cellList != null)
             {
                 for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
                 {
                     DestructibleCell cell = _cellList[cellIndex];
                     cell.GameObject = null;
+                    cell.Collider = null;
                     _cellList[cellIndex] = cell;
                 }
             }

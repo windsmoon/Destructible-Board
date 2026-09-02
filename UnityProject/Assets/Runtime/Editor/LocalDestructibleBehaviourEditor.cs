@@ -22,6 +22,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 EditorGUILayout.IntField("Voronoi Regions", board.VoronoiRegionCount);
                 EditorGUILayout.IntField("Fragment Vertices", board.FragmentVertexCount);
                 EditorGUILayout.IntField("Fragment Triangles", board.FragmentTriangleCount);
+                EditorGUILayout.IntField("Fragment Colliders", board.ColliderCount);
             }
         }
         #endregion
