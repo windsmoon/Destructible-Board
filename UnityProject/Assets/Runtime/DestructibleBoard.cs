@@ -153,12 +153,7 @@ namespace Windsmoon.DesctructibleBoard
 
             foreach (Vector2 site in _siteList)
             {
-                DestructibleCell destructibleCell = new DestructibleCell()
-                {
-                    Id = _cellList.Count,
-                    Site = site,
-                    Polygon = new List<Vector2>(),
-                };
+                DestructibleCell destructibleCell = new DestructibleCell(_cellList.Count, site);
                 _cellList.Add(destructibleCell);
             }
         }

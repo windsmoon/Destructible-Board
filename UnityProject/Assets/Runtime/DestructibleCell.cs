@@ -16,6 +16,21 @@ namespace Windsmoon.DesctructibleBoard
         public List<Vector2> Polygon;
         public Mesh Mesh;
         public GameObject GameObject;
+        public List<int> NeighborList;
+        public Collider Collider;
+        #endregion
+
+        #region constructors
+        public DestructibleCell(int id, Vector2 site)
+        {
+            Id = id;
+            Site = site;
+            Polygon = new List<Vector2>();
+            Mesh = null;
+            GameObject = null;
+            NeighborList = new List<int>();
+            Collider = null;
+        }
         #endregion
     }
 }
