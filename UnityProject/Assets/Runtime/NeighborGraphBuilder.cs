@@ -9,7 +9,6 @@ namespace Windsmoon.DesctructibleBoard
         #region fields
         private const float MinPositionTolerance = 0.00001f;
         private const float PositionToleranceScale = 0.00001f;
-        private const float ParallelTolerance = 0.0001f;
         #endregion
 
         #region methods
@@ -83,56 +82,22 @@ namespace Windsmoon.DesctructibleBoard
                 return false;
             }
 
-            float minLengthSquared = positionTolerance * positionTolerance;
+            float positionToleranceSquared = positionTolerance * positionTolerance;
             for (int firstEdgeIndex = 0; firstEdgeIndex < firstPolygon.Count; firstEdgeIndex++)
             {
                 Vector2 firstStart = firstPolygon[firstEdgeIndex];
                 Vector2 firstEnd = firstPolygon[(firstEdgeIndex + 1) % firstPolygon.Count];
-                Vector2 firstDirection = firstEnd - firstStart;
-                float firstLengthSquared = firstDirection.sqrMagnitude;
-                if (firstLengthSquared <= minLengthSquared)
-                {
-                    continue;
-                }
-
-                float firstLength = Mathf.Sqrt(firstLengthSquared);
                 for (int secondEdgeIndex = 0; secondEdgeIndex < secondPolygon.Count; secondEdgeIndex++)
                 {
                     Vector2 secondStart = secondPolygon[secondEdgeIndex];
                     Vector2 secondEnd = secondPolygon[(secondEdgeIndex + 1) % secondPolygon.Count];
-                    Vector2 secondDirection = secondEnd - secondStart;
-                    float secondLengthSquared = secondDirection.sqrMagnitude;
-                    if (secondLengthSquared <= minLengthSquared)
-                    {
-                        continue;
-                    }
-
-                    // Check whether the two edges are parallel.
-                    // Non-parallel edges cannot represent the same shared edge.
-                    float directionCross = Mathf.Abs(Cross(firstDirection, secondDirection));
-                    if (directionCross > ParallelTolerance * Mathf.Sqrt(firstLengthSquared * secondLengthSquared))
-                    {
-                        continue;
-                    }
-
-                    // Both endpoints must lie on the same supporting line. This
-                    // prevents nearby parallel fragment edges from becoming linked.
-                    // distance = |Cross(lineDirection, point - lineStart)| / |lineDirection| is 2d point to line formula
-                    float secondStartDistance = Mathf.Abs(Cross(firstDirection, secondStart - firstStart)) / firstLength;
-                    float secondEndDistance = Mathf.Abs(Cross(firstDirection, secondEnd - firstStart)) / firstLength;
-                    // two edges is parallel but not the same edge
-                    if (secondStartDistance > positionTolerance || secondEndDistance > positionTolerance)
-                    {
-                        continue;
-                    }
-
-                    float secondStartProjection = Vector2.Dot(secondStart - firstStart, firstDirection) / firstLengthSquared;
-                    float secondEndProjection = Vector2.Dot(secondEnd - firstStart, firstDirection) / firstLengthSquared;
-                    float overlapStart = Mathf.Max(0f, Mathf.Min(secondStartProjection, secondEndProjection));
-                    float overlapEnd = Mathf.Min(1f, Mathf.Max(secondStartProjection, secondEndProjection));
-
-                    // Point-only contact is not a neighbor relationship.
-                    if ((overlapEnd - overlapStart) * firstLength > positionTolerance)
+                    bool sameDirection =
+                        (firstStart - secondStart).sqrMagnitude <= positionToleranceSquared &&
+                        (firstEnd - secondEnd).sqrMagnitude <= positionToleranceSquared;
+                    bool oppositeDirection =
+                        (firstStart - secondEnd).sqrMagnitude <= positionToleranceSquared &&
+                        (firstEnd - secondStart).sqrMagnitude <= positionToleranceSquared;
+                    if (sameDirection || oppositeDirection)
                     {
                         return true;
                     }
@@ -140,11 +105,6 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             return false;
-        }
-
-        private static float Cross(Vector2 a, Vector2 b)
-        {
-            return a.x * b.y - a.y * b.x;
         }
         #endregion
 
