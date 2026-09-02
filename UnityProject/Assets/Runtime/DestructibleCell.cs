@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
+    [Serializable]
     public struct DestructibleCell
     {
         #region fields

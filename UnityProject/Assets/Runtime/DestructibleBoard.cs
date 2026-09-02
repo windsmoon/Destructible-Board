@@ -33,7 +33,7 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private bool _enableVoronoiDebug = false;
 
-        // [SerializeField, HideInInspector] 
+        [SerializeField, Tooltip("Generated cell data. Replaced when Generate is called.")]
         private List<DestructibleCell> _cellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
@@ -97,7 +97,8 @@ namespace Windsmoon.DesctructibleBoard
 
             if (_enableDebugMode && _cellList != null)
             {
-                if (_enableDelaunayDebug)
+                // Serialized cells can load before the transient triangulation caches exist.
+                if (_enableDelaunayDebug && _siteList != null && _delaunayTriangleList != null)
                 {
                     DebugDelaunay();
 

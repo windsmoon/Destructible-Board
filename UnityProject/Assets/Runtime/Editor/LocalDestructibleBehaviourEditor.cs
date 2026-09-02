@@ -16,6 +16,11 @@ namespace Windsmoon.DesctructibleBoard.Editor
             if (GUILayout.Button("Generate"))
             {
                 board.Generate();
+                if (!Application.isPlaying)
+                {
+                    EditorUtility.SetDirty(board);
+                }
+
                 SceneView.RepaintAll();
             }
 
