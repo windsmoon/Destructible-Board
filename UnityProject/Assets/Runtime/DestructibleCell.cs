@@ -10,6 +10,10 @@ namespace Windsmoon.DesctructibleBoard
         #region fields
         public int Id;
         public Vector2 Site;
+        /// <summary>
+        /// Counter-clockwise vertices of the Voronoi cell, clipped to the panel bounds
+        /// and expressed in panel-local XY coordinates.
+        /// </summary>
         public List<Vector2> Polygon;
         #endregion
     }
