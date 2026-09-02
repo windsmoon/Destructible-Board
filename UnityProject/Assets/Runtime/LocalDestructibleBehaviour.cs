@@ -34,12 +34,16 @@ namespace Windsmoon.DesctructibleBoard
         private List<DestructibleCell> _cellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
+        private int _fragmentVertexCount;
+        private int _fragmentTriangleCount;
         #endregion
 
         #region properties
         public IReadOnlyList<DestructibleCell> CellList => _cellList;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
+        public int FragmentVertexCount => _fragmentVertexCount;
+        public int FragmentTriangleCount => _fragmentTriangleCount;
         public int VoronoiRegionCount
         {
             get
@@ -71,6 +75,11 @@ namespace Windsmoon.DesctructibleBoard
             {
                 Generate();
             }
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseFragmentMeshes();
         }
 
         private void OnDrawGizmos()
@@ -108,6 +117,7 @@ namespace Windsmoon.DesctructibleBoard
             _siteList ??= new List<Vector2>(_maxFragmentCount);
             _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
 
+            ReleaseFragmentMeshes();
             _cellList.Clear();
             _siteList.Clear();
             _delaunayTriangleList.Clear();
@@ -115,6 +125,14 @@ namespace Windsmoon.DesctructibleBoard
             GenerateSamplePoints();
             GenerateDelaunayTriangles();
             GenerateVoronoiCells();
+            CalculateFragmentMeshDebugInfo();
+
+            // Editor validation only needs deterministic geometry data and counts.
+            // Allocate Unity Mesh objects only during runtime initialization.
+            if (Application.isPlaying)
+            {
+                GenerateFragmentMeshes();
+            }
         }
         
         private void GenerateSamplePoints()
@@ -141,6 +159,63 @@ namespace Windsmoon.DesctructibleBoard
         private void GenerateVoronoiCells()
         {
             VoronoiGenerator.Generate(new Vector2(_width, _height), _siteList, _delaunayTriangleList, _cellList);
+        }
+
+        private void CalculateFragmentMeshDebugInfo()
+        {
+            _fragmentVertexCount = 0;
+            _fragmentTriangleCount = 0;
+
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                List<Vector2> polygon = _cellList[cellIndex].Polygon;
+                // Use the generator's topology formulas without allocating vertex
+                // arrays, triangle indices, or a Unity Mesh object.
+                _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(polygon.Count);
+                _fragmentTriangleCount += FragmentMeshGenerator.CalculateTriangleCount(polygon.Count);
+            }
+        }
+
+        private void GenerateFragmentMeshes()
+        {
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _cellList[cellIndex];
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.Polygon, _thickness);
+                cell.Mesh.name = $"Fragment Mesh {cell.Id}";
+                // DestructibleCell is a value type, so persist the updated Mesh
+                // reference by assigning the modified copy back into the list.
+                _cellList[cellIndex] = cell;
+            }
+        }
+
+        private void ReleaseFragmentMeshes()
+        {
+            if (_cellList == null)
+            {
+                return;
+            }
+
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _cellList[cellIndex];
+                if (cell.Mesh == null)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(cell.Mesh);
+                }
+                else
+                {
+                    DestroyImmediate(cell.Mesh);
+                }
+
+                cell.Mesh = null;
+                _cellList[cellIndex] = cell;
+            }
         }
 
         private void DebugDelaunay()

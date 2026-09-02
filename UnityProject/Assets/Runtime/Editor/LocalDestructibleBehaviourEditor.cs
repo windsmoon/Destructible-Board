@@ -20,6 +20,8 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 EditorGUILayout.IntField("Sample Points", behaviour.SamplePointCount);
                 EditorGUILayout.IntField("Delaunay Triangles", behaviour.DelaunayTriangleCount);
                 EditorGUILayout.IntField("Voronoi Regions", behaviour.VoronoiRegionCount);
+                EditorGUILayout.IntField("Fragment Vertices", behaviour.FragmentVertexCount);
+                EditorGUILayout.IntField("Fragment Triangles", behaviour.FragmentTriangleCount);
             }
         }
         #endregion

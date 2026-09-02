@@ -18,10 +18,8 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             int polygonVertexCount = polygon.Count;
-            int vertexCount = polygonVertexCount * 6;
-            // Each cap uses n - 2 triangles, and the n side quads use 2n triangles.
-            // The closed mesh therefore needs (4n - 4) triangles, with 3 indices each.
-            int triangleIndexCount = (polygonVertexCount * 4 - 4) * 3;
+            int vertexCount = CalculateVertexCount(polygonVertexCount);
+            int triangleIndexCount = CalculateTriangleCount(polygonVertexCount) * 3;
             Vector3[] vertices = new Vector3[vertexCount];
             Vector3[] normals = new Vector3[vertexCount];
             Vector2[] uv = new Vector2[vertexCount];
@@ -42,6 +40,20 @@ namespace Windsmoon.DesctructibleBoard
             };
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        internal static int CalculateVertexCount(int polygonVertexCount)
+        {
+            // Each cap uses n vertices, while the n side quads use four separate
+            // vertices each to retain hard normals: 2n + 4n = 6n.
+            return polygonVertexCount < 3 ? 0 : polygonVertexCount * 6;
+        }
+
+        internal static int CalculateTriangleCount(int polygonVertexCount)
+        {
+            // Each cap uses n - 2 triangles, and the n side quads use 2n triangles:
+            // 2(n - 2) + 2n = 4n - 4.
+            return polygonVertexCount < 3 ? 0 : polygonVertexCount * 4 - 4;
         }
 
         private static void WriteFrontAndBackVertices(IReadOnlyList<Vector2> polygon, float halfThickness, Vector3[] vertices, Vector3[] normals, Vector2[] uv)

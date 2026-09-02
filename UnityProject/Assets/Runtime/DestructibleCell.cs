@@ -15,6 +15,8 @@ namespace Windsmoon.DesctructibleBoard
         /// and expressed in panel-local XY coordinates.
         /// </summary>
         public List<Vector2> Polygon;
+        [NonSerialized]
+        public Mesh Mesh;
         #endregion
     }
 }
