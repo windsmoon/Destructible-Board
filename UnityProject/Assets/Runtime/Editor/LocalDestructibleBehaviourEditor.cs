@@ -13,6 +13,13 @@ namespace Windsmoon.DesctructibleBoard.Editor
 
             DestructibleBoard board = (DestructibleBoard)target;
             EditorGUILayout.Space();
+            if (GUILayout.Button("Generate"))
+            {
+                board.Generate();
+                SceneView.RepaintAll();
+            }
+
+            EditorGUILayout.Space();
             EditorGUILayout.LabelField("Generated Debug Info", EditorStyles.boldLabel);
 
             using (new EditorGUI.DisabledScope(true))

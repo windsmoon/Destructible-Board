@@ -80,14 +80,6 @@ namespace Windsmoon.DesctructibleBoard
             Generate();
         }
 
-        private void OnValidate()
-        {
-            if (_enableDebugMode)
-            {
-                Generate();
-            }
-        }
-
         private void OnDestroy()
         {
             ReleaseGameObjects();
@@ -103,7 +95,7 @@ namespace Windsmoon.DesctructibleBoard
             Gizmos.color = Color.white;
             Gizmos.DrawWireCube(Vector3.zero, new Vector3(_width, _height, _thickness));
 
-            if (_enableDebugMode)
+            if (_enableDebugMode && _cellList != null)
             {
                 if (_enableDelaunayDebug)
                 {
@@ -116,9 +108,10 @@ namespace Windsmoon.DesctructibleBoard
                     DebugVoronoi();  
                 }
 
-                Gizmos.matrix = previousMatrix;
-                Gizmos.color = previousColor;
             }
+
+            Gizmos.matrix = previousMatrix;
+            Gizmos.color = previousColor;
         }
         #endregion
 
@@ -153,7 +146,7 @@ namespace Windsmoon.DesctructibleBoard
             GenerateNeighborGraph();
             CalculateFragmentMeshDebugInfo();
 
-            // Editor validation only needs deterministic geometry data and counts.
+            // Editor preview only needs deterministic geometry data and counts.
             // Allocate Unity Mesh objects only during runtime initialization.
             if (Application.isPlaying)
             {
