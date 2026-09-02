@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard.Editor
 {
-    [CustomEditor(typeof(LocalDestructibleBehaviour))]
+    [CustomEditor(typeof(DestructibleBoard))]
     public class LocalDestructibleBehaviourEditor : UnityEditor.Editor
     {
         #region unity methods
@@ -11,17 +11,17 @@ namespace Windsmoon.DesctructibleBoard.Editor
         {
             DrawDefaultInspector();
 
-            LocalDestructibleBehaviour behaviour = (LocalDestructibleBehaviour)target;
+            DestructibleBoard board = (DestructibleBoard)target;
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Generated Debug Info", EditorStyles.boldLabel);
 
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.IntField("Sample Points", behaviour.SamplePointCount);
-                EditorGUILayout.IntField("Delaunay Triangles", behaviour.DelaunayTriangleCount);
-                EditorGUILayout.IntField("Voronoi Regions", behaviour.VoronoiRegionCount);
-                EditorGUILayout.IntField("Fragment Vertices", behaviour.FragmentVertexCount);
-                EditorGUILayout.IntField("Fragment Triangles", behaviour.FragmentTriangleCount);
+                EditorGUILayout.IntField("Sample Points", board.SamplePointCount);
+                EditorGUILayout.IntField("Delaunay Triangles", board.DelaunayTriangleCount);
+                EditorGUILayout.IntField("Voronoi Regions", board.VoronoiRegionCount);
+                EditorGUILayout.IntField("Fragment Vertices", board.FragmentVertexCount);
+                EditorGUILayout.IntField("Fragment Triangles", board.FragmentTriangleCount);
             }
         }
         #endregion

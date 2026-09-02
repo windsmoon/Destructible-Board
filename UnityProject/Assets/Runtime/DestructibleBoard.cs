@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
-    public class LocalDestructibleBehaviour : MonoBehaviour
+    public class DestructibleBoard : MonoBehaviour
     {
         #region fields
         [Header("Panel")]
