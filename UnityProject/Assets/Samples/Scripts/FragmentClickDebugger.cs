@@ -24,6 +24,8 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private bool _destroyedCellsBlockPropagation = false;
         [SerializeField, Min(0.001f)]
         private float _fragmentMass = 1f;
+        [SerializeField, Min(0f), Tooltip("One-time downward impulse in world space when a fragment detaches.")]
+        private float _downwardImpulse = 5f;
         [SerializeField, Min(0.01f)]
         private float _fragmentLifetime = 5f;
         #endregion
@@ -133,6 +135,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             rigidbody.mass = _fragmentMass;
             rigidbody.useGravity = true;
             rigidbody.isKinematic = false;
+            rigidbody.AddForce(Vector3.down * _downwardImpulse, ForceMode.Impulse);
 
             Destroy(fallingFragment, _fragmentLifetime);
         }
