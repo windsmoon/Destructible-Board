@@ -17,6 +17,8 @@ namespace Windsmoon.DesctructibleBoard
             List<Vector2> currentPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
             List<Vector2> clippedPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
 
+            MarkBoundaryCells(triangleList, cellList);
+
             for (int siteIndex = 0; siteIndex < siteList.Count; siteIndex++)
             {
                 // Each cell needs its own constraints, including the two-site fallback.
@@ -57,6 +59,96 @@ namespace Windsmoon.DesctructibleBoard
                 CopyCleanCounterClockwisePolygon(currentPolygon, cell.Polygon);
                 cellList[siteIndex] = cell;
             }
+        }
+
+        /// <summary>
+        /// Marks cells whose Voronoi regions touch the panel outline. A region is
+        /// unbounded exactly when its site lies on the convex hull of the sample
+        /// points, which the Delaunay triangulation exposes as an edge referenced
+        /// by a single triangle. The panel is convex and strictly contains every
+        /// site, so unbounded regions are precisely the boundary cells and no
+        /// positional check against the outline is required.
+        /// </summary>
+        private static void MarkBoundaryCells(IReadOnlyList<DelaunayTriangle> triangleList, List<DestructibleCell> cellList)
+        {
+            if (cellList == null || cellList.Count == 0)
+            {
+                return;
+            }
+
+            // Clear stale flags before recomputing for a fresh generation.
+            for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = cellList[cellIndex];
+                cell.IsBoundary = false;
+                cellList[cellIndex] = cell;
+            }
+
+            // Fewer than three sites, or all sites collinear, produce no Delaunay
+            // triangles. The fallback below then yields full-panel strips, so every
+            // surviving cell touches the boundary.
+            if (triangleList == null || triangleList.Count == 0)
+            {
+                for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+                {
+                    DestructibleCell cell = cellList[cellIndex];
+                    cell.IsBoundary = true;
+                    cellList[cellIndex] = cell;
+                }
+
+                return;
+            }
+
+            Dictionary<long, int> edgeReferenceCount = new Dictionary<long, int>(triangleList.Count * 3);
+            foreach (DelaunayTriangle triangle in triangleList)
+            {
+                AddEdgeReference(edgeReferenceCount, triangle.A, triangle.B);
+                AddEdgeReference(edgeReferenceCount, triangle.B, triangle.C);
+                AddEdgeReference(edgeReferenceCount, triangle.C, triangle.A);
+            }
+
+            foreach (KeyValuePair<long, int> pair in edgeReferenceCount)
+            {
+                if (pair.Value != 1)
+                {
+                    continue;
+                }
+
+                // Convex-hull edges are referenced by exactly one triangle.
+                UnpackEdge(pair.Key, out int firstCellIndex, out int secondCellIndex);
+                SetBoundaryCell(cellList, firstCellIndex);
+                SetBoundaryCell(cellList, secondCellIndex);
+            }
+        }
+
+        private static void AddEdgeReference(Dictionary<long, int> edgeReferenceCount, int firstCellIndex, int secondCellIndex)
+        {
+            long key = PackEdge(firstCellIndex, secondCellIndex);
+            edgeReferenceCount.TryGetValue(key, out int count);
+            edgeReferenceCount[key] = count + 1;
+        }
+
+        private static long PackEdge(int firstCellIndex, int secondCellIndex)
+        {
+            int minIndex = Mathf.Min(firstCellIndex, secondCellIndex);
+            int maxIndex = Mathf.Max(firstCellIndex, secondCellIndex);
+            // Cell indices are non-negative and fit in 32 bits, so a single long
+            // keeps edge counting allocation-free and symmetric regardless of order.
+            return ((long)minIndex << 32) | (uint)maxIndex;
+        }
+
+        private static void UnpackEdge(long key, out int firstCellIndex, out int secondCellIndex)
+        {
+            firstCellIndex = (int)(key >> 32);
+            secondCellIndex = (int)(key & 0xFFFFFFFFL);
+        }
+
+        private static void SetBoundaryCell(List<DestructibleCell> cellList, int cellIndex)
+        {
+            DestructibleCell cell = cellList[cellIndex];
+            cell.IsBoundary = true;
+            // DestructibleCell is a value type, so persist the changed state.
+            cellList[cellIndex] = cell;
         }
 
         private static void CollectDelaunayNeighbors(int siteIndex, IReadOnlyList<DelaunayTriangle> triangleList, List<int> neighborList)
