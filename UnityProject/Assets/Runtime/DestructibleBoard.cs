@@ -573,7 +573,6 @@ namespace Windsmoon.DesctructibleBoard
 
         private void DebugVoronoi()
         {
-            Gizmos.color = Color.green;
             foreach (DestructibleCell cell in _cellList)
             {
                 if (cell.Polygon == null || cell.Polygon.Count < 2)
@@ -581,6 +580,7 @@ namespace Windsmoon.DesctructibleBoard
                     continue;
                 }
 
+                Gizmos.color = cell.IsBoundary ? Color.magenta : Color.green;
                 for (int pointIndex = 0; pointIndex < cell.Polygon.Count; pointIndex++)
                 {
                     Vector2 current = cell.Polygon[pointIndex];
