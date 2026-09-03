@@ -11,15 +11,16 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
-        internal static void Generate(Vector2 panelSize, IReadOnlyList<Vector2> siteList, IReadOnlyList<DelaunayTriangle> triangleList, List<DestructibleCell> cellList)
+        internal static void Generate(IReadOnlyList<Vector2> panelPolygon, IReadOnlyList<Vector2> siteList, IReadOnlyList<DelaunayTriangle> triangleList, List<DestructibleCell> cellList)
         {
             List<int> neighborList = new List<int>();
-            List<Vector2> currentPolygon = new List<Vector2>(8);
-            List<Vector2> clippedPolygon = new List<Vector2>(8);
-            Vector2 halfPanelSize = panelSize * 0.5f;
+            List<Vector2> currentPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
+            List<Vector2> clippedPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
 
             for (int siteIndex = 0; siteIndex < siteList.Count; siteIndex++)
             {
+                // Each cell needs its own constraints, including the two-site fallback.
+                neighborList.Clear();
                 CollectDelaunayNeighbors(siteIndex, triangleList, neighborList);
 
                 // Collinear inputs have no Delaunay triangles, but their Voronoi
@@ -35,7 +36,11 @@ namespace Windsmoon.DesctructibleBoard
                     }
                 }
 
-                SetPanelPolygon(currentPolygon, halfPanelSize);
+                currentPolygon.Clear();
+                for (int vertexIndex = 0; vertexIndex < panelPolygon.Count; vertexIndex++)
+                {
+                    currentPolygon.Add(panelPolygon[vertexIndex]);
+                }
                 foreach (var neighborSiteIndex in neighborList)
                 {
                     ClipToCloserHalfPlane(currentPolygon, clippedPolygon, siteList[siteIndex], siteList[neighborSiteIndex]);
@@ -88,15 +93,6 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             valueList.Add(value);
-        }
-
-        private static void SetPanelPolygon(List<Vector2> polygon, Vector2 halfPanelSize)
-        {
-            polygon.Clear();
-            polygon.Add(new Vector2(-halfPanelSize.x, -halfPanelSize.y));
-            polygon.Add(new Vector2(halfPanelSize.x, -halfPanelSize.y));
-            polygon.Add(new Vector2(halfPanelSize.x, halfPanelSize.y));
-            polygon.Add(new Vector2(-halfPanelSize.x, halfPanelSize.y));
         }
 
         private static void ClipToCloserHalfPlane(IReadOnlyList<Vector2> inputPolygon, List<Vector2> outputPolygon, Vector2 site, Vector2 neighborSite)

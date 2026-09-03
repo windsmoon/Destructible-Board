@@ -13,9 +13,9 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
-        internal static void Generate(Vector2 panelSize, float minDistance, int seed, int maxPointCount, List<Vector2> pointList)
+        internal static void Generate(Vector2 panelSize, IReadOnlyList<Vector2> panelPolygon, float minDistance, int seed, int maxPointCount, List<Vector2> pointList)
         {
-            if (panelSize.x <= 0f || panelSize.y <= 0f || minDistance <= 0f || maxPointCount <= 0)
+            if (panelSize.x <= 0f || panelSize.y <= 0f || panelPolygon.Count < 3)
             {
                 return;
             }
@@ -40,9 +40,14 @@ namespace Windsmoon.DesctructibleBoard
             Vector2 halfPanelSize = panelSize * 0.5f;
 
             // Start Bridson's algorithm with one random active point inside the panel.
-            Vector2 firstPoint = new Vector2(
-                Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, s_random.NextFloat()),
-                Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, s_random.NextFloat()));
+            Vector2 firstPoint;
+            do
+            {
+                firstPoint = new Vector2(
+                    Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, s_random.NextFloat()),
+                    Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, s_random.NextFloat()));
+            }
+            while (IsInsidePanel(firstPoint, halfPanelSize, panelPolygon) == false);
             AddPoint(firstPoint, halfPanelSize, gridCellSize, gridWidth, gridHeight, pointList, s_activePointIndexList, grid);
 
             float minDistanceSquared = minDistance * minDistance;
@@ -58,7 +63,7 @@ namespace Windsmoon.DesctructibleBoard
                     float radius = minDistance * (1f + s_random.NextFloat());
                     Vector2 candidate = sourcePoint + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
 
-                    if (IsInsidePanel(candidate, halfPanelSize) == false ||
+                    if (IsInsidePanel(candidate, halfPanelSize, panelPolygon) == false ||
                         IsFarEnough(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, minDistanceSquared, pointList, grid) == false)
                     {
                         continue;
@@ -112,10 +117,28 @@ namespace Windsmoon.DesctructibleBoard
             grid[gridX][gridY] = pointIndex + 1;
         }
 
-        private static bool IsInsidePanel(Vector2 point, Vector2 halfPanelSize)
+        // TODO pass the shape to reduce the caculation
+        private static bool IsInsidePanel(Vector2 point, Vector2 halfPanelSize, IReadOnlyList<Vector2> panelPolygon)
         {
-            return point.x >= -halfPanelSize.x && point.x < halfPanelSize.x &&
-                   point.y >= -halfPanelSize.y && point.y < halfPanelSize.y;
+            if (point.x < -halfPanelSize.x || point.x >= halfPanelSize.x ||
+                point.y < -halfPanelSize.y || point.y >= halfPanelSize.y)
+            {
+                return false;
+            }
+
+            // Every interior point lies to the left of each counter-clockwise edge.
+            for (int edgeIndex = 0; edgeIndex < panelPolygon.Count; edgeIndex++)
+            {
+                Vector2 start = panelPolygon[edgeIndex];
+                Vector2 edge = panelPolygon[(edgeIndex + 1) % panelPolygon.Count] - start;
+                Vector2 offset = point - start;
+                if (edge.x * offset.y - edge.y * offset.x < 0f)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool IsFarEnough(Vector2 candidate, Vector2 halfPanelSize, float gridCellSize, int gridWidth, int gridHeight, float minimumDistanceSquared, List<Vector2> points, int[][] grid)

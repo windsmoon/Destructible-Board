@@ -8,10 +8,16 @@ namespace Windsmoon.DesctructibleBoard
     {
         #region fields
         [Header("Panel")]
+        [SerializeField]
+        private Shape _shape = Shape.Rectangle;
         [SerializeField, Min(0.01f)] 
         private float _width = 10f;
         [SerializeField, Min(0.01f)] 
         private float _height = 6f;
+        [SerializeField, Min(0.01f)]
+        private float _radius = 3f;
+        [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate the circle.")]
+        private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
         private float _thickness = 0.2f;
 
@@ -37,6 +43,7 @@ namespace Windsmoon.DesctructibleBoard
         private List<DestructibleCell> _cellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
+        private readonly List<Vector2> _panelPolygon = new List<Vector2>(64);
         private readonly Dictionary<Collider, int> _cellIndexByCollider = new Dictionary<Collider, int>();
         private List<int> _currentSearchLayer = new List<int>();
         private List<int> _nextSearchLayer = new List<int>();
@@ -48,6 +55,10 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
+        private Vector2 PanelSize => _shape == Shape.Circle
+            ? Vector2.one * (_radius * 2f)
+            : new Vector2(_width, _height);
+        private int PanelVertexCount => _shape == Shape.Circle ? Mathf.Clamp(_circleSegments, 8, 64) : 4;
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
@@ -97,7 +108,7 @@ namespace Windsmoon.DesctructibleBoard
             Gizmos.matrix = transform.localToWorldMatrix;
 
             Gizmos.color = Color.white;
-            Gizmos.DrawWireCube(Vector3.zero, new Vector3(_width, _height, _thickness));
+            DebugPanelOutline();
 
             if (_enableDebugMode && _cellList != null)
             {
@@ -302,6 +313,13 @@ namespace Windsmoon.DesctructibleBoard
             _cellList.Clear();
             _siteList.Clear();
             _delaunayTriangleList.Clear();
+
+            // Sampling, clipping and preview all use the same local-space outline.
+            _panelPolygon.Clear();
+            for (int vertexIndex = 0; vertexIndex < PanelVertexCount; vertexIndex++)
+            {
+                _panelPolygon.Add(GetPanelVertex(vertexIndex));
+            }
             
             GenerateSamplePoints();
             GenerateDelaunayTriangles();
@@ -320,7 +338,7 @@ namespace Windsmoon.DesctructibleBoard
         
         private void GenerateSamplePoints()
         {
-            PoissonDiskSampler.Generate(new Vector2(_width, _height), _fragmentSize, _seed, _maxFragmentCount, _siteList);
+            PoissonDiskSampler.Generate(PanelSize, _panelPolygon, _fragmentSize, _seed, _maxFragmentCount, _siteList);
 
             foreach (Vector2 site in _siteList)
             {
@@ -358,12 +376,12 @@ namespace Windsmoon.DesctructibleBoard
 
         private void GenerateVoronoiCells()
         {
-            VoronoiGenerator.Generate(new Vector2(_width, _height), _siteList, _delaunayTriangleList, _cellList);
+            VoronoiGenerator.Generate(_panelPolygon, _siteList, _delaunayTriangleList, _cellList);
         }
 
         private void GenerateNeighborGraph()
         {
-            NeighborGraphBuilder.Generate(new Vector2(_width, _height), _delaunayTriangleList, _cellList);
+            NeighborGraphBuilder.Generate(PanelSize, _delaunayTriangleList, _cellList);
         }
 
         private void CalculateFragmentMeshDebugInfo()
@@ -490,6 +508,46 @@ namespace Windsmoon.DesctructibleBoard
 
                 cell.Mesh = null;
                 _cellList[cellIndex] = cell;
+            }
+        }
+
+        private Vector2 GetPanelVertex(int vertexIndex)
+        {
+            if (_shape == Shape.Circle)
+            {
+                // Increasing angles produce the counter-clockwise convex outline
+                // required by both half-plane clipping and fragment extrusion.
+                float angle = vertexIndex * (Mathf.PI * 2f / PanelVertexCount);
+                return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _radius;
+            }
+
+            Vector2 halfSize = PanelSize * 0.5f;
+            return vertexIndex switch
+            {
+                0 => new Vector2(-halfSize.x, -halfSize.y),
+                1 => new Vector2(halfSize.x, -halfSize.y),
+                2 => new Vector2(halfSize.x, halfSize.y),
+                _ => new Vector2(-halfSize.x, halfSize.y),
+            };
+        }
+
+        private void DebugPanelOutline()
+        {
+            float halfThickness = _thickness * 0.5f;
+            int vertexCount = PanelVertexCount;
+            for (int vertexIndex = 0; vertexIndex < vertexCount; vertexIndex++)
+            {
+                Vector2 current = GetPanelVertex(vertexIndex);
+                Vector2 next = GetPanelVertex((vertexIndex + 1) % vertexCount);
+                Vector3 front = new Vector3(current.x, current.y, halfThickness);
+                Vector3 back = new Vector3(current.x, current.y, -halfThickness);
+                Gizmos.DrawLine(front, new Vector3(next.x, next.y, halfThickness));
+                Gizmos.DrawLine(back, new Vector3(next.x, next.y, -halfThickness));
+                if (vertexIndex == 0 || vertexIndex == vertexCount / 4 ||
+                    vertexIndex == vertexCount / 2 || vertexIndex == vertexCount * 3 / 4)
+                {
+                    Gizmos.DrawLine(front, back);
+                }
             }
         }
 
