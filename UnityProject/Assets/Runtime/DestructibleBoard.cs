@@ -178,31 +178,35 @@ namespace Windsmoon.DesctructibleBoard
                 return false;
             }
 
-            if (cell.Collider != null)
-            {
-                _cellIndexByCollider.Remove(cell.Collider);
-            }
-
-            if (cell.GameObject != null)
-            {
-                if (Application.isPlaying)
-                {
-                    // Hide and disable collision immediately; Unity performs the
-                    // actual destruction at the end of the frame.
-                    cell.GameObject.SetActive(false);
-                    Destroy(cell.GameObject);
-                }
-                else
-                {
-                    DestroyImmediate(cell.GameObject);
-                }
-            }
-
+            GameObject fragmentObject = cell.GameObject;
+            Collider fragmentCollider = cell.Collider;
+            
             cell.GameObject = null;
             cell.Collider = null;
             cell.Destroyed = true;
             // DestructibleCell is a value type, so persist the changed state.
             _cellList[cellId] = cell;
+
+            if (fragmentCollider != null)
+            {
+                _cellIndexByCollider.Remove(fragmentCollider);
+            }
+
+            if (fragmentObject != null)
+            {
+                if (Application.isPlaying)
+                {
+                    // Hide and disable collision immediately; Unity performs the
+                    // actual destruction at the end of the frame.
+                    fragmentObject.SetActive(false);
+                    Destroy(fragmentObject);
+                }
+                else
+                {
+                    DestroyImmediate(fragmentObject);
+                }
+            }
+
             return true;
         }
 
@@ -215,8 +219,10 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary>
-        /// Collects the start cell and its neighbor rings in breadth-first order.
-        /// Depth zero is the start cell. The supplied list is cleared first.
+        /// Collects non-destroyed cells from the start cell's neighbor rings in
+        /// breadth-first order. Destroyed cells remain traversal links so existing
+        /// holes do not block propagation. Depth zero is the start cell, and the
+        /// supplied list is cleared first.
         /// </summary>
         public int CollectCellsByDepth(int startCellId, int maxDepth, List<CellSearchResult> results)
         {
@@ -247,14 +253,18 @@ namespace Windsmoon.DesctructibleBoard
                 _currentSearchLayer.Sort();
                 foreach (var cellId in _currentSearchLayer)
                 {
-                    results.Add(new CellSearchResult(cellId, depth));
+                    DestructibleCell cell = _cellList[cellId];
+                    if (cell.Destroyed == false)
+                    {
+                        results.Add(new CellSearchResult(cellId, depth));
+                    }
 
                     if (depth == maxDepth)
                     {
                         continue;
                     }
 
-                    List<int> neighborList = _cellList[cellId].NeighborList;
+                    List<int> neighborList = cell.NeighborList;
                     foreach (var neighborId in neighborList)
                     {
                         // has found
