@@ -119,6 +119,72 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &20260001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 20260002}
+  - component: {fileID: 20260003}
+  - component: {fileID: 20260004}
+  m_Layer: 0
+  m_Name: Destroy Trigger
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &20260002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 20260001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -156.7, z: 0}
+  m_LocalScale: {x: 100, y: 1, z: 100}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &20260003
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 20260001}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 100, y: 4, z: 100}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &20260004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 20260001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64b6899eeced4a598bf43c2ea2efc6eb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Windsmoon.DesctructibleBoard.Samples.DestroyOnTrigger
 --- !u!1 &406625114
 GameObject:
   m_ObjectHideFlags: 0
@@ -279,7 +345,6 @@ MonoBehaviour:
   _destroyedCellsBlockPropagation: 0
   _fragmentMass: 1
   _downwardImpulse: 2
-  _fragmentLifetime: 15
 --- !u!1 &1732937083
 GameObject:
   m_ObjectHideFlags: 0
@@ -309,8 +374,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03b6707cc2cf46a993aed45f3c120a38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Windsmoon.DesctructibleBoard.LocalDestructiblePanel
+  _shape: 0
   _width: 20
   _height: 10
+  _radius: 3
+  _circleSegments: 64
   _thickness: 0.36
   _fragmentSize: 0.4
   _seed: 606
@@ -469,3 +537,4 @@ SceneRoots:
   - {fileID: 406625117}
   - {fileID: 1772610360}
   - {fileID: 1732937085}
+  - {fileID: 20260002}

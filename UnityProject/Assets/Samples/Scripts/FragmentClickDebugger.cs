@@ -26,8 +26,6 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private float _fragmentMass = 1f;
         [SerializeField, Min(0f), Tooltip("One-time downward impulse in world space when a fragment detaches.")]
         private float _downwardImpulse = 5f;
-        [SerializeField, Min(0.01f)]
-        private float _fragmentLifetime = 5f;
         #endregion
 
         #region unity methods
@@ -117,7 +115,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             }
 
             // The board only owns the logical state. This sample takes ownership
-            // of the existing fragment object and controls its physical lifetime.
+            // of the existing fragment object; the scene's trigger handles cleanup.
             if (board.DestroyCellLogically(cellId) == false)
             {
                 return;
@@ -137,7 +135,6 @@ namespace Windsmoon.DesctructibleBoard.Samples
             rigidbody.isKinematic = false;
             rigidbody.AddForce(Vector3.down * _downwardImpulse, ForceMode.Impulse);
 
-            Destroy(fallingFragment, _fragmentLifetime);
         }
         #endregion
     }
