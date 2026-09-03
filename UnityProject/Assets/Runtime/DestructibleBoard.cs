@@ -38,6 +38,10 @@ namespace Windsmoon.DesctructibleBoard
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
         private readonly Dictionary<Collider, int> _cellIndexByCollider = new Dictionary<Collider, int>();
+        private List<int> _currentSearchLayer = new List<int>();
+        private List<int> _nextSearchLayer = new List<int>();
+        private int[] _searchVisitVersions = Array.Empty<int>();
+        private int _searchVersion;
         private int _fragmentVertexCount;
         private int _fragmentTriangleCount;
         private Transform _root;
@@ -117,6 +121,9 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
+        /// <summary>
+        /// Gets the cell represented by a generated fragment collider.
+        /// </summary>
         public bool TryGetCell(Collider collider, out DestructibleCell cell)
         {
             if (collider != null && _cellIndexByCollider.TryGetValue(collider, out int cellIndex))
@@ -127,6 +134,123 @@ namespace Windsmoon.DesctructibleBoard
 
             cell = default;
             return false;
+        }
+
+        /// <summary>
+        /// Gets a cell by its stable ID without scanning the cell collection.
+        /// </summary>
+        public bool TryGetCell(int cellId, out DestructibleCell cell)
+        {
+            // Cell IDs are assigned from their list indices during generation.
+            if (_cellList != null && cellId >= 0 && cellId < _cellList.Count && _cellList[cellId].Id == cellId)
+            {
+                cell = _cellList[cellId];
+                return true;
+            }
+
+            cell = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Gets the stable cell ID represented by a generated fragment collider.
+        /// </summary>
+        public bool TryGetCellId(Collider collider, out int cellId)
+        {
+            if (collider != null && _cellIndexByCollider.TryGetValue(collider, out int cellIndex))
+            {
+                cellId = _cellList[cellIndex].Id;
+                return true;
+            }
+
+            cellId = -1;
+            return false;
+        }
+
+        /// <summary>
+        /// Collects the start cell and its neighbor rings in breadth-first order.
+        /// Depth zero is the start cell. The supplied list is cleared first.
+        /// </summary>
+        public int CollectCellsByDepth(int startCellId, int maxDepth, List<CellSearchResult> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            if (maxDepth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxDepth), "Maximum depth cannot be negative.");
+            }
+
+            results.Clear();
+            if (TryGetCell(startCellId, out _) == false)
+            {
+                return 0;
+            }
+
+            BeginCellSearch();
+            _currentSearchLayer.Add(startCellId);
+            _searchVisitVersions[startCellId] = _searchVersion;
+
+            for (int depth = 0; depth <= maxDepth && _currentSearchLayer.Count > 0; depth++)
+            {
+                // Global sorting per layer makes output deterministic even when
+                // several parents discover the same outer ring in different orders.
+                _currentSearchLayer.Sort();
+                foreach (var cellId in _currentSearchLayer)
+                {
+                    results.Add(new CellSearchResult(cellId, depth));
+
+                    if (depth == maxDepth)
+                    {
+                        continue;
+                    }
+
+                    List<int> neighborList = _cellList[cellId].NeighborList;
+                    foreach (var neighborId in neighborList)
+                    {
+                        // has found
+                        if (_searchVisitVersions[neighborId] == _searchVersion)
+                        {
+                            continue;
+                        }
+
+                        _searchVisitVersions[neighborId] = _searchVersion;
+                        _nextSearchLayer.Add(neighborId);
+                    }
+                }
+
+                (_currentSearchLayer, _nextSearchLayer) = (_nextSearchLayer, _currentSearchLayer);
+                _nextSearchLayer.Clear();
+            }
+
+            return results.Count;
+        }
+        
+        /// <summary>
+        /// Finds a cell from a generated fragment collider, then collects its neighbor rings.
+        /// </summary>
+        public bool CollectCellsByDepth(Collider collider, int maxDepth, List<CellSearchResult> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            if (maxDepth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxDepth), "Maximum depth cannot be negative.");
+            }
+
+            results.Clear();
+            if (TryGetCellId(collider, out int startCellId) == false)
+            {
+                return false;
+            }
+
+            CollectCellsByDepth(startCellId, maxDepth, results);
+            return true;
         }
 
         public void Generate()
@@ -165,6 +289,28 @@ namespace Windsmoon.DesctructibleBoard
                 DestructibleCell destructibleCell = new DestructibleCell(_cellList.Count, site);
                 _cellList.Add(destructibleCell);
             }
+        }
+
+        private void BeginCellSearch()
+        {
+            _currentSearchLayer.Clear();
+            _nextSearchLayer.Clear();
+
+            if (_searchVisitVersions.Length != _cellList.Count)
+            {
+                _searchVisitVersions = new int[_cellList.Count];
+                _searchVersion = 1;
+                return;
+            }
+
+            if (_searchVersion == int.MaxValue)
+            {
+                Array.Clear(_searchVisitVersions, 0, _searchVisitVersions.Length);
+                _searchVersion = 1;
+                return;
+            }
+
+            _searchVersion++;
         }
 
         private void GenerateDelaunayTriangles()
