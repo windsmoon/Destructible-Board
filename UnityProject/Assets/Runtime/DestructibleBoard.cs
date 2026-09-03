@@ -302,6 +302,64 @@ namespace Windsmoon.DesctructibleBoard
             return true;
         }
 
+        /// <summary>
+        /// Returns each surviving connected component that contains no boundary
+        /// cell. Destroyed cells block connectivity and are excluded from results.
+        /// Each island's IDs are sorted, and islands are ordered by their lowest ID.
+        /// Results are independent snapshots; querying never destroys or detaches cells.
+        /// Returns an empty list before generation or when no islands remain.
+        /// </summary>
+        public bool TryGetIslands(List<List<int>> islands)
+        {
+            if (_cellList == null || _cellList.Count == 0)
+            {
+                return false;
+            }
+
+            BeginCellSearch();
+            for (int startCellId = 0; startCellId < _cellList.Count; startCellId++)
+            {
+                if (_cellList[startCellId].Destroyed || _searchVisitVersions[startCellId] == _searchVersion)
+                {
+                    continue;
+                }
+
+                // Reuse the search buffer as a BFS queue and component accumulator.
+                _currentSearchLayer.Clear();
+                _currentSearchLayer.Add(startCellId);
+                _searchVisitVersions[startCellId] = _searchVersion;
+                bool containsBoundary = false;
+
+                for (int queueIndex = 0; queueIndex < _currentSearchLayer.Count; queueIndex++)
+                {
+                    DestructibleCell cell = _cellList[_currentSearchLayer[queueIndex]];
+                    containsBoundary |= cell.IsBoundary;
+
+                    // Finish traversing even after finding support, so the rest of
+                    // this component cannot be mistaken for a separate island.
+                    foreach (int neighborId in cell.NeighborList)
+                    {
+                        if (_cellList[neighborId].Destroyed || _searchVisitVersions[neighborId] == _searchVersion)
+                        {
+                            continue;
+                        }
+
+                        _searchVisitVersions[neighborId] = _searchVersion;
+                        _currentSearchLayer.Add(neighborId);
+                    }
+                }
+
+                if (containsBoundary == false)
+                {
+                    // Copy before reusing the buffer, preserving earlier query results.
+                    _currentSearchLayer.Sort();
+                    islands.Add(new List<int>(_currentSearchLayer));
+                }
+            }
+
+            return islands.Count > 0;
+        }
+
         public void Generate()
         {
             _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
