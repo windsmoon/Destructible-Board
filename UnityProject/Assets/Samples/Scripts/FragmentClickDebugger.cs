@@ -32,6 +32,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private float _fragmentMass = 1f;
         [SerializeField, Min(0f), Tooltip("One-time downward impulse in world space when a fragment detaches.")]
         private float _downwardImpulse = 5f;
+        private readonly List<List<int>> _islands = new List<List<int>>();
         #endregion
 
         #region unity methods
@@ -204,19 +205,43 @@ namespace Windsmoon.DesctructibleBoard.Samples
 
         private void DropCell(DestructibleBoard board, int cellId)
         {
+            if (!TryDropCell(board, cellId))
+            {
+                return;
+            }
+
+            _islands.Clear();
+            if (board.TryGetIslands(_islands))
+            {
+                // Islands are already disconnected from every supported component.
+                // Drop the entire snapshot without recursively querying each fragment.
+                foreach (List<int> island in _islands)
+                {
+                    foreach (int islandCellId in island)
+                    {
+                        TryDropCell(board, islandCellId);
+                    }
+                }
+            }
+
+            _islands.Clear();
+        }
+
+        private bool TryDropCell(DestructibleBoard board, int cellId)
+        {
             if (board == null ||
                 board.TryGetCell(cellId, out DestructibleCell cell) == false ||
                 cell.Destroyed ||
                 cell.GameObject == null)
             {
-                return;
+                return false;
             }
 
             // The board only owns the logical state. This sample takes ownership
             // of the existing fragment object; the scene's trigger handles cleanup.
             if (board.DestroyCellLogically(cellId) == false)
             {
-                return;
+                return false;
             }
 
             GameObject fallingFragment = cell.GameObject;
@@ -232,7 +257,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             rigidbody.useGravity = true;
             rigidbody.isKinematic = false;
             rigidbody.AddForce(Vector3.down * _downwardImpulse, ForceMode.Impulse);
-
+            return true;
         }
         #endregion
     }
