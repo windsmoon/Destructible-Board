@@ -16,10 +16,16 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private LayerMask _layerMask = Physics.DefaultRaycastLayers;
 
         [Header("Collapse")]
-        [SerializeField, Min(0)]
+        [SerializeField, Min(0), Tooltip("Maximum neighbor depth for left-click collapse. Right-click has no depth limit.")]
         private int _maxDepth = 2;
-        [SerializeField, Min(0f)]
+        [SerializeField, Min(0f), Tooltip("Delay between neighbor layers for left-click collapse.")]
         private float _depthInterval = 0.25f;
+        [SerializeField, Min(0f), Tooltip("Delay between random queue drops for right-click collapse.")]
+        private float _dropInterval = 0.15f;
+        [SerializeField, Min(1), Tooltip("Minimum cells dropped from the queue each interval.")]
+        private int _minDropCount = 1;
+        [SerializeField, Min(1), Tooltip("Maximum cells dropped from the queue each interval.")]
+        private int _maxDropCount = 5;
         [SerializeField]
         private bool _destroyedCellsBlockPropagation = false;
         [SerializeField, Min(0.001f)]
@@ -46,7 +52,13 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private void Update()
         {
             Mouse mouse = Mouse.current;
-            if (_camera == null || mouse == null || !mouse.leftButton.wasPressedThisFrame)
+            if (_camera == null || mouse == null)
+            {
+                return;
+            }
+
+            bool rightClicked = mouse.rightButton.wasPressedThisFrame;
+            if (!rightClicked && !mouse.leftButton.wasPressedThisFrame)
             {
                 return;
             }
@@ -65,6 +77,12 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 return;
             }
 
+            if (rightClicked)
+            {
+                StartCoroutine(DropCellsFromQueue(board, cell.Id));
+                return;
+            }
+
             List<CellSearchResult> searchResults = new List<CellSearchResult>();
             board.CollectCellsByDepth(
                 cell.Id,
@@ -80,6 +98,86 @@ namespace Windsmoon.DesctructibleBoard.Samples
         #endregion
 
         #region methods
+        private IEnumerator DropCellsFromQueue(DestructibleBoard board, int startCellId)
+        {
+            if (board == null || !board.TryGetCell(startCellId, out DestructibleCell startCell))
+            {
+                yield break;
+            }
+
+            // Cell IDs are stable indices within a generation, so a visited flag
+            // array sized to the current cell count safely tracks enqueued cells.
+            int cellCount = board.CellList.Count;
+            bool[] enqueued = new bool[cellCount];
+            Queue<int> pending = new Queue<int>(cellCount);
+            List<int> startNeighbors = startCell.NeighborList;
+            WaitForSeconds dropDelay = _dropInterval > 0f ? new WaitForSeconds(_dropInterval) : null;
+
+            // Start from the hit cell: capture its surviving neighbors into the
+            // queue before dropping it so our own destruction never blocks the wave.
+            enqueued[startCellId] = true;
+            EnqueueAliveNeighbors(board, startCell, enqueued, pending);
+            DropCell(board, startCellId);
+
+            while (pending.Count > 0)
+            {
+                // Generate replaces each cell's neighbor list. Stop an old wave
+                // instead of applying its queued IDs to a newly generated board.
+                if (board == null || board.CellList.Count != cellCount ||
+                    !board.TryGetCell(startCellId, out startCell) ||
+                    !ReferenceEquals(startCell.NeighborList, startNeighbors))
+                {
+                    yield break;
+                }
+
+                if (dropDelay != null)
+                {
+                    yield return dropDelay;
+                }
+
+                int dropCount = Random.Range(_minDropCount, _maxDropCount + 1);
+                for (int index = 0; index < dropCount && pending.Count > 0; index++)
+                {
+                    int cellId = pending.Dequeue();
+                    if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.Destroyed)
+                    {
+                        continue;
+                    }
+
+                    // Capture this cell's surviving neighbors before dropping it.
+                    EnqueueAliveNeighbors(board, cell, enqueued, pending);
+                    DropCell(board, cellId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds every still-existing, not-yet-enqueued neighbor to the pending
+        /// queue. Destroyed neighbors are skipped so holes block propagation.
+        /// </summary>
+        private void EnqueueAliveNeighbors(
+            DestructibleBoard board,
+            DestructibleCell cell,
+            bool[] enqueued,
+            Queue<int> pending)
+        {
+            foreach (int neighborId in cell.NeighborList)
+            {
+                if (enqueued[neighborId])
+                {
+                    continue;
+                }
+
+                if (!board.TryGetCell(neighborId, out DestructibleCell neighbor) || neighbor.Destroyed)
+                {
+                    continue;
+                }
+
+                enqueued[neighborId] = true;
+                pending.Enqueue(neighborId);
+            }
+        }
+
         private IEnumerator DropCellsByDepth(
             DestructibleBoard board,
             List<CellSearchResult> searchResults)
