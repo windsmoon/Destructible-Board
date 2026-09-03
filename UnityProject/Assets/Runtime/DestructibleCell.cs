@@ -19,6 +19,7 @@ namespace Windsmoon.DesctructibleBoard
         public GameObject GameObject;
         public List<int> NeighborList;
         public Collider Collider;
+        public bool Destroyed;
         #endregion
 
         #region constructors
@@ -31,6 +32,7 @@ namespace Windsmoon.DesctructibleBoard
             GameObject = null;
             NeighborList = new List<int>();
             Collider = null;
+            Destroyed = false;
         }
         #endregion
     }

@@ -48,7 +48,7 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
-        public IReadOnlyList<DestructibleCell> CellList => _cellList;
+        internal IReadOnlyList<DestructibleCell> CellList => _cellList;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
         public int FragmentVertexCount => _fragmentVertexCount;
@@ -165,6 +165,53 @@ namespace Windsmoon.DesctructibleBoard
 
             cellId = -1;
             return false;
+        }
+
+        /// <summary>
+        /// Marks a generated cell as destroyed and destroys its fragment GameObject.
+        /// The cell and its original neighbor relationships remain available as data.
+        /// </summary>
+        public bool DestroyCell(int cellId)
+        {
+            if (TryGetCell(cellId, out DestructibleCell cell) == false || cell.Destroyed)
+            {
+                return false;
+            }
+
+            if (cell.Collider != null)
+            {
+                _cellIndexByCollider.Remove(cell.Collider);
+            }
+
+            if (cell.GameObject != null)
+            {
+                if (Application.isPlaying)
+                {
+                    // Hide and disable collision immediately; Unity performs the
+                    // actual destruction at the end of the frame.
+                    cell.GameObject.SetActive(false);
+                    Destroy(cell.GameObject);
+                }
+                else
+                {
+                    DestroyImmediate(cell.GameObject);
+                }
+            }
+
+            cell.GameObject = null;
+            cell.Collider = null;
+            cell.Destroyed = true;
+            // DestructibleCell is a value type, so persist the changed state.
+            _cellList[cellId] = cell;
+            return true;
+        }
+
+        /// <summary>
+        /// Resolves a generated fragment collider and marks its cell as destroyed.
+        /// </summary>
+        public bool DestroyCell(Collider collider)
+        {
+            return TryGetCellId(collider, out int cellId) && DestroyCell(cellId);
         }
 
         /// <summary>

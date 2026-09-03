@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
-    public static class VoronoiGenerator
+    internal static class VoronoiGenerator
     {
         #region constants
         private const float InsideEpsilon = 0.000001f;

@@ -1,6 +1,6 @@
 ﻿namespace Windsmoon.DesctructibleBoard
 {
-    public readonly struct DelaunayTriangle
+    internal readonly struct DelaunayTriangle
     {
         #region fields
         public readonly int A;

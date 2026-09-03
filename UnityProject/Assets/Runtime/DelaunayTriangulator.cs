@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
-    public static class DelaunayTriangulator
+    internal static class DelaunayTriangulator
     {
         #region methods
         internal static void Generate(IReadOnlyList<Vector2> siteList, List<DelaunayTriangle> outputList)

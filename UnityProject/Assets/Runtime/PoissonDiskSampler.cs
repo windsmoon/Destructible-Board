@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
-    public static class PoissonDiskSampler
+    internal static class PoissonDiskSampler
     {
         #region fields
         private const int CandidateAttempts = 30;

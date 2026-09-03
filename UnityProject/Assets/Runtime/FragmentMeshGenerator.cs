@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
-    public static class FragmentMeshGenerator
+    internal static class FragmentMeshGenerator
     {
         #region methods
         /// <summary>
