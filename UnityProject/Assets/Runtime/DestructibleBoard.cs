@@ -168,54 +168,35 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary>
-        /// Marks a generated cell as destroyed and destroys its fragment GameObject.
-        /// The cell and its original neighbor relationships remain available as data.
+        /// Marks a generated cell as destroyed without changing or destroying its
+        /// GameObject, Collider, Mesh, or topology data.
         /// </summary>
-        public bool DestroyCell(int cellId)
+        public bool DestroyCellLogically(int cellId)
         {
             if (TryGetCell(cellId, out DestructibleCell cell) == false || cell.Destroyed)
             {
                 return false;
             }
 
-            GameObject fragmentObject = cell.GameObject;
-            Collider fragmentCollider = cell.Collider;
-            
-            cell.GameObject = null;
-            cell.Collider = null;
             cell.Destroyed = true;
             // DestructibleCell is a value type, so persist the changed state.
             _cellList[cellId] = cell;
 
-            if (fragmentCollider != null)
+            // A logically destroyed collider no longer represents an active board cell.
+            if (cell.Collider != null)
             {
-                _cellIndexByCollider.Remove(fragmentCollider);
-            }
-
-            if (fragmentObject != null)
-            {
-                if (Application.isPlaying)
-                {
-                    // Hide and disable collision immediately; Unity performs the
-                    // actual destruction at the end of the frame.
-                    fragmentObject.SetActive(false);
-                    Destroy(fragmentObject);
-                }
-                else
-                {
-                    DestroyImmediate(fragmentObject);
-                }
+                _cellIndexByCollider.Remove(cell.Collider);
             }
 
             return true;
         }
 
         /// <summary>
-        /// Resolves a generated fragment collider and marks its cell as destroyed.
+        /// Resolves a generated fragment collider and marks its cell as logically destroyed.
         /// </summary>
-        public bool DestroyCell(Collider collider)
+        public bool DestroyCellLogically(Collider collider)
         {
-            return TryGetCellId(collider, out int cellId) && DestroyCell(cellId);
+            return TryGetCellId(collider, out int cellId) && DestroyCellLogically(cellId);
         }
 
         /// <summary>

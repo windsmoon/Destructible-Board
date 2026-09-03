@@ -274,6 +274,11 @@ MonoBehaviour:
   _layerMask:
     serializedVersion: 2
     m_Bits: 51
+  _maxDepth: 2
+  _depthInterval: 0.25
+  _destroyedCellsBlockPropagation: 0
+  _fragmentMass: 1
+  _fragmentLifetime: 5
 --- !u!1 &1732937083
 GameObject:
   m_ObjectHideFlags: 0
