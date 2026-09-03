@@ -8,6 +8,8 @@ namespace Windsmoon.DesctructibleBoard
         #region constants
         private const float InsideEpsilon = 0.000001f;
         private const float DuplicatePointEpsilonSquared = 0.0000000001f;
+        private const float MinBoundaryTolerance = 0.00001f;
+        private const float BoundaryToleranceScale = 0.00001f;
         #endregion
 
         #region methods
@@ -17,7 +19,7 @@ namespace Windsmoon.DesctructibleBoard
             List<Vector2> currentPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
             List<Vector2> clippedPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
 
-            MarkBoundaryCells(triangleList, cellList);
+            float boundaryTolerance = CalculateBoundaryTolerance(panelPolygon);
 
             for (int siteIndex = 0; siteIndex < siteList.Count; siteIndex++)
             {
@@ -57,98 +59,80 @@ namespace Windsmoon.DesctructibleBoard
                 DestructibleCell cell = cellList[siteIndex];
                 cell.Polygon ??= new List<Vector2>(currentPolygon.Count);
                 CopyCleanCounterClockwisePolygon(currentPolygon, cell.Polygon);
+                cell.IsBoundary = SharesPanelBoundaryEdge(cell.Polygon, panelPolygon, boundaryTolerance);
                 cellList[siteIndex] = cell;
             }
         }
 
-        /// <summary>
-        /// Marks cells whose Voronoi regions touch the panel outline. A region is
-        /// unbounded exactly when its site lies on the convex hull of the sample
-        /// points, which the Delaunay triangulation exposes as an edge referenced
-        /// by a single triangle. The panel is convex and strictly contains every
-        /// site, so unbounded regions are precisely the boundary cells and no
-        /// positional check against the outline is required.
-        /// </summary>
-        private static void MarkBoundaryCells(IReadOnlyList<DelaunayTriangle> triangleList, List<DestructibleCell> cellList)
+        private static float CalculateBoundaryTolerance(IReadOnlyList<Vector2> panelPolygon)
         {
-            if (cellList == null || cellList.Count == 0)
+            if (panelPolygon.Count == 0)
             {
-                return;
+                return MinBoundaryTolerance;
             }
 
-            // Clear stale flags before recomputing for a fresh generation.
-            for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+            Vector2 minimum = panelPolygon[0];
+            Vector2 maximum = panelPolygon[0];
+            for (int vertexIndex = 1; vertexIndex < panelPolygon.Count; vertexIndex++)
             {
-                DestructibleCell cell = cellList[cellIndex];
-                cell.IsBoundary = false;
-                cellList[cellIndex] = cell;
+                minimum = Vector2.Min(minimum, panelPolygon[vertexIndex]);
+                maximum = Vector2.Max(maximum, panelPolygon[vertexIndex]);
             }
 
-            // Fewer than three sites, or all sites collinear, produce no Delaunay
-            // triangles. The fallback below then yields full-panel strips, so every
-            // surviving cell touches the boundary.
-            if (triangleList == null || triangleList.Count == 0)
-            {
-                for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
-                {
-                    DestructibleCell cell = cellList[cellIndex];
-                    cell.IsBoundary = true;
-                    cellList[cellIndex] = cell;
-                }
+            Vector2 size = maximum - minimum;
+            return Mathf.Max(MinBoundaryTolerance, Mathf.Max(size.x, size.y) * BoundaryToleranceScale);
+        }
 
-                return;
+        /// <summary>
+        /// Tests the clipped cell against the actual panel outline. Bounded
+        /// Voronoi regions can reach the outline even when their sites are not
+        /// on the sample convex hull. A point contact alone is not a boundary edge.
+        /// </summary>
+        private static bool SharesPanelBoundaryEdge(IReadOnlyList<Vector2> polygon, IReadOnlyList<Vector2> panelPolygon, float tolerance)
+        {
+            if (polygon.Count < 3 || panelPolygon.Count < 3)
+            {
+                return false;
             }
 
-            Dictionary<long, int> edgeReferenceCount = new Dictionary<long, int>(triangleList.Count * 3);
-            foreach (DelaunayTriangle triangle in triangleList)
+            for (int panelEdgeIndex = 0; panelEdgeIndex < panelPolygon.Count; panelEdgeIndex++)
             {
-                AddEdgeReference(edgeReferenceCount, triangle.A, triangle.B);
-                AddEdgeReference(edgeReferenceCount, triangle.B, triangle.C);
-                AddEdgeReference(edgeReferenceCount, triangle.C, triangle.A);
-            }
-
-            foreach (KeyValuePair<long, int> pair in edgeReferenceCount)
-            {
-                if (pair.Value != 1)
+                Vector2 panelStart = panelPolygon[panelEdgeIndex];
+                Vector2 panelEdge = panelPolygon[(panelEdgeIndex + 1) % panelPolygon.Count] - panelStart;
+                float panelEdgeLength = panelEdge.magnitude;
+                if (panelEdgeLength <= tolerance)
                 {
                     continue;
                 }
 
-                // Convex-hull edges are referenced by exactly one triangle.
-                UnpackEdge(pair.Key, out int firstCellIndex, out int secondCellIndex);
-                SetBoundaryCell(cellList, firstCellIndex);
-                SetBoundaryCell(cellList, secondCellIndex);
+                // Unit direction makes the cross products distances in panel-local
+                // units, so the same tolerance works for long and short outline edges.
+                Vector2 direction = panelEdge / panelEdgeLength;
+                for (int cellEdgeIndex = 0; cellEdgeIndex < polygon.Count; cellEdgeIndex++)
+                {
+                    Vector2 startOffset = polygon[cellEdgeIndex] - panelStart;
+                    Vector2 endOffset = polygon[(cellEdgeIndex + 1) % polygon.Count] - panelStart;
+                    float startDistance = direction.x * startOffset.y - direction.y * startOffset.x;
+                    float endDistance = direction.x * endOffset.y - direction.y * endOffset.x;
+                    if (Mathf.Abs(startDistance) > tolerance || Mathf.Abs(endDistance) > tolerance)
+                    {
+                        continue;
+                    }
+
+                    // Intersect the projected segments, excluding zero-length edges,
+                    // corner-only contacts and the extension beyond a panel segment.
+                    float startProjection = Vector2.Dot(startOffset, direction);
+                    float endProjection = Vector2.Dot(endOffset, direction);
+                    float overlapStart = Mathf.Max(0f, Mathf.Min(startProjection, endProjection));
+                    float overlapEnd = Mathf.Min(panelEdgeLength, Mathf.Max(startProjection, endProjection));
+                    if (overlapEnd - overlapStart > tolerance)
+                    {
+                        return true;
+                    }
+                }
             }
-        }
 
-        private static void AddEdgeReference(Dictionary<long, int> edgeReferenceCount, int firstCellIndex, int secondCellIndex)
-        {
-            long key = PackEdge(firstCellIndex, secondCellIndex);
-            edgeReferenceCount.TryGetValue(key, out int count);
-            edgeReferenceCount[key] = count + 1;
-        }
-
-        private static long PackEdge(int firstCellIndex, int secondCellIndex)
-        {
-            int minIndex = Mathf.Min(firstCellIndex, secondCellIndex);
-            int maxIndex = Mathf.Max(firstCellIndex, secondCellIndex);
-            // Cell indices are non-negative and fit in 32 bits, so a single long
-            // keeps edge counting allocation-free and symmetric regardless of order.
-            return ((long)minIndex << 32) | (uint)maxIndex;
-        }
-
-        private static void UnpackEdge(long key, out int firstCellIndex, out int secondCellIndex)
-        {
-            firstCellIndex = (int)(key >> 32);
-            secondCellIndex = (int)(key & 0xFFFFFFFFL);
-        }
-
-        private static void SetBoundaryCell(List<DestructibleCell> cellList, int cellIndex)
-        {
-            DestructibleCell cell = cellList[cellIndex];
-            cell.IsBoundary = true;
-            // DestructibleCell is a value type, so persist the changed state.
-            cellList[cellIndex] = cell;
+            return false;
         }
 
         private static void CollectDelaunayNeighbors(int siteIndex, IReadOnlyList<DelaunayTriangle> triangleList, List<int> neighborList)

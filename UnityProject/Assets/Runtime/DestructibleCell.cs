@@ -20,6 +20,10 @@ namespace Windsmoon.DesctructibleBoard
         public List<int> NeighborList;
         public Collider Collider;
         public bool Destroyed;
+        /// <summary>
+        /// The clipped polygon shares a non-zero-length edge with the original
+        /// panel outline, within the generator's geometric tolerance.
+        /// </summary>
         public bool IsBoundary;
         #endregion
 
