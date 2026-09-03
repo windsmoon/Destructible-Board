@@ -220,11 +220,11 @@ namespace Windsmoon.DesctructibleBoard
 
         /// <summary>
         /// Collects non-destroyed cells from the start cell's neighbor rings in
-        /// breadth-first order. Destroyed cells remain traversal links so existing
-        /// holes do not block propagation. Depth zero is the start cell, and the
-        /// supplied list is cleared first.
+        /// breadth-first order. Destroyed cells are never returned and can optionally
+        /// block traversal through existing holes. Depth zero is the start cell, and
+        /// the supplied list is cleared first.
         /// </summary>
-        public int CollectCellsByDepth(int startCellId, int maxDepth, List<CellSearchResult> results)
+        public int CollectCellsByDepth(int startCellId, int maxDepth, List<CellSearchResult> results, bool destroyedCellsBlockPropagation)
         {
             if (results == null)
             {
@@ -259,7 +259,7 @@ namespace Windsmoon.DesctructibleBoard
                         results.Add(new CellSearchResult(cellId, depth));
                     }
 
-                    if (depth == maxDepth)
+                    if (depth == maxDepth || (cell.Destroyed && destroyedCellsBlockPropagation))
                     {
                         continue;
                     }
@@ -288,7 +288,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary>
         /// Finds a cell from a generated fragment collider, then collects its neighbor rings.
         /// </summary>
-        public bool CollectCellsByDepth(Collider collider, int maxDepth, List<CellSearchResult> results)
+        public bool CollectCellsByDepth(Collider collider, int maxDepth, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = false)
         {
             if (results == null)
             {
@@ -306,7 +306,7 @@ namespace Windsmoon.DesctructibleBoard
                 return false;
             }
 
-            CollectCellsByDepth(startCellId, maxDepth, results);
+            CollectCellsByDepth(startCellId, maxDepth, results, destroyedCellsBlockPropagation);
             return true;
         }
 
