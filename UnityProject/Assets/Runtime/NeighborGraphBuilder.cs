@@ -64,7 +64,16 @@ namespace Windsmoon.DesctructibleBoard
         {
             DestructibleCell firstCell = cellList[firstCellIndex];
             DestructibleCell secondCell = cellList[secondCellIndex];
-            if (SharesPolygonEdge(firstCell.Polygon, secondCell.Polygon, positionTolerance) == false)
+            bool sharesEdge = false;
+            for (int firstPart = 0; firstPart < firstCell.PartCount && !sharesEdge; firstPart++)
+            {
+                for (int secondPart = 0; secondPart < secondCell.PartCount && !sharesEdge; secondPart++)
+                {
+                    sharesEdge = SharesPolygonEdge(firstCell.GetPolygon(firstPart), secondCell.GetPolygon(secondPart), positionTolerance);
+                }
+            }
+
+            if (!sharesEdge)
             {
                 return;
             }
@@ -82,22 +91,31 @@ namespace Windsmoon.DesctructibleBoard
                 return false;
             }
 
-            float positionToleranceSquared = positionTolerance * positionTolerance;
             for (int firstEdgeIndex = 0; firstEdgeIndex < firstPolygon.Count; firstEdgeIndex++)
             {
                 Vector2 firstStart = firstPolygon[firstEdgeIndex];
                 Vector2 firstEnd = firstPolygon[(firstEdgeIndex + 1) % firstPolygon.Count];
+                Vector2 edge = firstEnd - firstStart;
+                float length = edge.magnitude;
+                if (length <= positionTolerance) continue;
+                Vector2 direction = edge / length;
                 for (int secondEdgeIndex = 0; secondEdgeIndex < secondPolygon.Count; secondEdgeIndex++)
                 {
-                    Vector2 secondStart = secondPolygon[secondEdgeIndex];
-                    Vector2 secondEnd = secondPolygon[(secondEdgeIndex + 1) % secondPolygon.Count];
-                    bool sameDirection =
-                        (firstStart - secondStart).sqrMagnitude <= positionToleranceSquared &&
-                        (firstEnd - secondEnd).sqrMagnitude <= positionToleranceSquared;
-                    bool oppositeDirection =
-                        (firstStart - secondEnd).sqrMagnitude <= positionToleranceSquared &&
-                        (firstEnd - secondStart).sqrMagnitude <= positionToleranceSquared;
-                    if (sameDirection || oppositeDirection)
+                    Vector2 start = secondPolygon[secondEdgeIndex] - firstStart;
+                    Vector2 end = secondPolygon[(secondEdgeIndex + 1) % secondPolygon.Count] - firstStart;
+                    if (Mathf.Abs(direction.x * start.y - direction.y * start.x) > positionTolerance ||
+                        Mathf.Abs(direction.x * end.y - direction.y * end.x) > positionTolerance)
+                    {
+                        continue;
+                    }
+
+                    // Hole subtraction can divide one shared edge into multiple
+                    // segments. Compare their positive-length overlap, not endpoints.
+                    float startProjection = Vector2.Dot(start, direction);
+                    float endProjection = Vector2.Dot(end, direction);
+                    float overlapStart = Mathf.Max(0f, Mathf.Min(startProjection, endProjection));
+                    float overlapEnd = Mathf.Min(length, Mathf.Max(startProjection, endProjection));
+                    if (overlapEnd - overlapStart > positionTolerance)
                     {
                         return true;
                     }

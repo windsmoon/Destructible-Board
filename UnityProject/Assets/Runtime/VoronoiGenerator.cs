@@ -88,7 +88,7 @@ namespace Windsmoon.DesctructibleBoard
         /// Voronoi regions can reach the outline even when their sites are not
         /// on the sample convex hull. A point contact alone is not a boundary edge.
         /// </summary>
-        private static bool SharesPanelBoundaryEdge(IReadOnlyList<Vector2> polygon, IReadOnlyList<Vector2> panelPolygon, float tolerance)
+        internal static bool SharesPanelBoundaryEdge(IReadOnlyList<Vector2> polygon, IReadOnlyList<Vector2> panelPolygon, float tolerance)
         {
             if (polygon.Count < 3 || panelPolygon.Count < 3)
             {

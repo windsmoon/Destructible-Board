@@ -13,7 +13,8 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
-        internal static void Generate(Vector2 panelSize, IReadOnlyList<Vector2> panelPolygon, float minDistance, int seed, int maxPointCount, List<Vector2> pointList)
+        internal static void Generate(Vector2 panelSize, IReadOnlyList<Vector2> panelPolygon, float minDistance, int seed, int maxPointCount, List<Vector2> pointList,
+            IReadOnlyList<Vector2> holePolygon = null)
         {
             if (panelSize.x <= 0f || panelSize.y <= 0f || panelPolygon.Count < 3)
             {
@@ -41,18 +42,47 @@ namespace Windsmoon.DesctructibleBoard
 
             // Start Bridson's algorithm with one random active point inside the panel.
             Vector2 firstPoint;
-            do
+            if (holePolygon != null)
             {
-                firstPoint = new Vector2(
-                    Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, s_random.NextFloat()),
-                    Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, s_random.NextFloat()));
+                firstPoint = SampleRingPoint(panelPolygon, holePolygon);
             }
-            while (IsInsidePanel(firstPoint, halfPanelSize, panelPolygon) == false);
+            else
+            {
+                do
+                {
+                    firstPoint = new Vector2(
+                        Mathf.Lerp(-halfPanelSize.x, halfPanelSize.x, s_random.NextFloat()),
+                        Mathf.Lerp(-halfPanelSize.y, halfPanelSize.y, s_random.NextFloat()));
+                }
+                while (IsInsidePanel(firstPoint, halfPanelSize, panelPolygon) == false);
+            }
             AddPoint(firstPoint, halfPanelSize, gridCellSize, gridWidth, gridHeight, pointList, s_activePointIndexList, grid);
 
             float minDistanceSquared = minDistance * minDistance;
-            while (s_activePointIndexList.Count > 0 && pointList.Count < maxPointCount)
+            while (pointList.Count < maxPointCount)
             {
+                if (s_activePointIndexList.Count == 0)
+                {
+                    // A thin annulus can exhaust the local Bridson front before
+                    // reaching the far side. Try bounded global reseeding there.
+                    bool reseeded = false;
+                    if (holePolygon != null)
+                    {
+                        for (int attempt = 0; attempt < CandidateAttempts; attempt++)
+                        {
+                            Vector2 candidate = SampleRingPoint(panelPolygon, holePolygon);
+                            if (IsFarEnough(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, minDistanceSquared, pointList, grid))
+                            {
+                                AddPoint(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, pointList, s_activePointIndexList, grid);
+                                reseeded = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!reseeded) break;
+                }
+
                 int activeListIndex = s_random.NextInt(0, s_activePointIndexList.Count);
                 Vector2 sourcePoint = pointList[s_activePointIndexList[activeListIndex]];
                 bool candidateAccepted = false;
@@ -64,6 +94,7 @@ namespace Windsmoon.DesctructibleBoard
                     Vector2 candidate = sourcePoint + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
 
                     if (IsInsidePanel(candidate, halfPanelSize, panelPolygon) == false ||
+                        (holePolygon != null && IsInsideConvexPolygon(candidate, holePolygon)) ||
                         IsFarEnough(candidate, halfPanelSize, gridCellSize, gridWidth, gridHeight, minDistanceSquared, pointList, grid) == false)
                     {
                         continue;
@@ -81,6 +112,17 @@ namespace Windsmoon.DesctructibleBoard
                     s_activePointIndexList.RemoveAt(lastIndex);
                 }
             }
+        }
+
+        private static Vector2 SampleRingPoint(IReadOnlyList<Vector2> outer, IReadOnlyList<Vector2> inner)
+        {
+            int edge = s_random.NextInt(0, outer.Count);
+            int next = (edge + 1) % outer.Count;
+            float along = s_random.NextFloat();
+            Vector2 outerPoint = Vector2.Lerp(outer[edge], outer[next], along);
+            Vector2 innerPoint = Vector2.Lerp(inner[edge], inner[next], along);
+            // Stay strictly between matching polygon edges, even for narrow rings.
+            return Vector2.Lerp(innerPoint, outerPoint, Mathf.Lerp(0.0001f, 0.9999f, s_random.NextFloat()));
         }
 
         private static int[][] GetGrid(int gridWidth, int gridHeight)
@@ -127,6 +169,11 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             // Every interior point lies to the left of each counter-clockwise edge.
+            return IsInsideConvexPolygon(point, panelPolygon);
+        }
+
+        private static bool IsInsideConvexPolygon(Vector2 point, IReadOnlyList<Vector2> panelPolygon)
+        {
             for (int edgeIndex = 0; edgeIndex < panelPolygon.Count; edgeIndex++)
             {
                 Vector2 start = panelPolygon[edgeIndex];
