@@ -4,6 +4,5 @@ namespace Windsmoon.DesctructibleBoard
     {
         Rectangle = 0,
         Circle = 1,
-        Ring = 2,
     }
 }

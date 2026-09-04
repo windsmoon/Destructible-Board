@@ -16,8 +16,6 @@ namespace Windsmoon.DesctructibleBoard
         private float _height = 6f;
         [SerializeField, Min(0.01f)]
         private float _radius = 3f;
-        [SerializeField, Min(0.001f), Tooltip("Radius of the central hole. Must be smaller than Radius.")]
-        private float _innerRadius = 1.5f;
         [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate the circle.")]
         private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
@@ -46,7 +44,6 @@ namespace Windsmoon.DesctructibleBoard
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
         private readonly List<Vector2> _panelPolygon = new List<Vector2>(64);
-        private readonly List<Vector2> _holePolygon = new List<Vector2>(64);
         private readonly Dictionary<Collider, int> _cellIndexByCollider = new Dictionary<Collider, int>();
         private List<int> _currentSearchLayer = new List<int>();
         private List<int> _nextSearchLayer = new List<int>();
@@ -58,12 +55,10 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
-        private bool IsRound => _shape == Shape.Circle || _shape == Shape.Ring;
-        private float InnerRadius => Mathf.Clamp(_innerRadius, 0.001f, Mathf.Max(0.002f, _radius) - 0.001f);
-        private Vector2 PanelSize => IsRound
+        private Vector2 PanelSize => _shape == Shape.Circle
             ? Vector2.one * (_radius * 2f)
             : new Vector2(_width, _height);
-        private int PanelVertexCount => IsRound ? Mathf.Clamp(_circleSegments, 8, 64) : 4;
+        private int PanelVertexCount => _shape == Shape.Circle ? Mathf.Clamp(_circleSegments, 8, 64) : 4;
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
@@ -98,15 +93,6 @@ namespace Windsmoon.DesctructibleBoard
         private void Awake()
         {
             Generate();
-        }
-
-        private void OnValidate()
-        {
-            if (_shape == Shape.Ring)
-            {
-                _radius = Mathf.Max(0.01f, _radius);
-                _innerRadius = InnerRadius;
-            }
         }
 
         private void OnDestroy()
@@ -208,13 +194,9 @@ namespace Windsmoon.DesctructibleBoard
             _cellList[cellId] = cell;
 
             // A logically destroyed collider no longer represents an active board cell.
-            for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
+            if (cell.Collider != null)
             {
-                Collider partCollider = cell.GetCollider(partIndex);
-                if (partCollider != null)
-                {
-                    _cellIndexByCollider.Remove(partCollider);
-                }
+                _cellIndexByCollider.Remove(cell.Collider);
             }
 
             return true;
@@ -380,7 +362,6 @@ namespace Windsmoon.DesctructibleBoard
 
         public void Generate()
         {
-            OnValidate();
             _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
             _siteList ??= new List<Vector2>(_maxFragmentCount);
             _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
@@ -393,14 +374,9 @@ namespace Windsmoon.DesctructibleBoard
 
             // Sampling, clipping and preview all use the same local-space outline.
             _panelPolygon.Clear();
-            _holePolygon.Clear();
             for (int vertexIndex = 0; vertexIndex < PanelVertexCount; vertexIndex++)
             {
                 _panelPolygon.Add(GetPanelVertex(vertexIndex));
-                if (_shape == Shape.Ring)
-                {
-                    _holePolygon.Add(GetPanelVertex(vertexIndex) * (InnerRadius / _radius));
-                }
             }
             
             GenerateSamplePoints();
@@ -420,8 +396,7 @@ namespace Windsmoon.DesctructibleBoard
         
         private void GenerateSamplePoints()
         {
-            PoissonDiskSampler.Generate(PanelSize, _panelPolygon, _fragmentSize, _seed, _maxFragmentCount, _siteList,
-                _shape == Shape.Ring ? _holePolygon : null);
+            PoissonDiskSampler.Generate(PanelSize, _panelPolygon, _fragmentSize, _seed, _maxFragmentCount, _siteList);
 
             foreach (Vector2 site in _siteList)
             {
@@ -460,10 +435,6 @@ namespace Windsmoon.DesctructibleBoard
         private void GenerateVoronoiCells()
         {
             VoronoiGenerator.Generate(_panelPolygon, _siteList, _delaunayTriangleList, _cellList);
-            if (_shape == Shape.Ring)
-            {
-                RingCellClipper.SubtractHole(_panelPolygon, _holePolygon, _cellList);
-            }
         }
 
         private void GenerateNeighborGraph()
@@ -478,15 +449,11 @@ namespace Windsmoon.DesctructibleBoard
 
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
-                DestructibleCell cell = _cellList[cellIndex];
+                List<Vector2> polygon = _cellList[cellIndex].Polygon;
                 // Use the generator's topology formulas without allocating vertex
                 // arrays, triangle indices, or a Unity Mesh object.
-                for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
-                {
-                    int count = cell.GetPolygon(partIndex).Count;
-                    _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(count);
-                    _fragmentTriangleCount += FragmentMeshGenerator.CalculateTriangleCount(count);
-                }
+                _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(polygon.Count);
+                _fragmentTriangleCount += FragmentMeshGenerator.CalculateTriangleCount(polygon.Count);
             }
         }
 
@@ -495,13 +462,8 @@ namespace Windsmoon.DesctructibleBoard
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
                 DestructibleCell cell = _cellList[cellIndex];
-                for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
-                {
-                    Mesh mesh = FragmentMeshGenerator.Generate(cell.GetPolygon(partIndex), _thickness);
-                    mesh.name = $"Fragment Mesh {cell.Id} Part {partIndex}";
-                    if (partIndex == 0) cell.Mesh = mesh;
-                    else cell.AdditionalParts[partIndex - 1].Mesh = mesh;
-                }
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.Polygon, _thickness);
+                cell.Mesh.name = $"Fragment Mesh {cell.Id}";
                 // DestructibleCell is a value type, so persist the updated Mesh
                 // reference by assigning the modified copy back into the list.
                 _cellList[cellIndex] = cell;
@@ -521,29 +483,20 @@ namespace Windsmoon.DesctructibleBoard
                 GameObject fragmentObject = new GameObject($"Fragment {cell.Id}");
                 fragmentObject.layer = gameObject.layer;
                 fragmentObject.transform.SetParent(_root, false);
-                cell.GameObject = fragmentObject;
-                for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
-                {
-                    // One Rigidbody on the cell root owns every convex part. A
-                    // single convex hull of the whole cell would fill the hole.
-                    GameObject partObject = fragmentObject;
-                    if (partIndex > 0)
-                    {
-                        partObject = new GameObject($"Part {partIndex}");
-                        partObject.layer = gameObject.layer;
-                        partObject.transform.SetParent(fragmentObject.transform, false);
-                    }
 
-                    Mesh mesh = cell.GetMesh(partIndex);
-                    partObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-                    partObject.AddComponent<MeshRenderer>().sharedMaterial = _material;
-                    MeshCollider meshCollider = partObject.AddComponent<MeshCollider>();
-                    meshCollider.convex = true;
-                    meshCollider.sharedMesh = mesh;
-                    if (partIndex == 0) cell.Collider = meshCollider;
-                    else cell.AdditionalParts[partIndex - 1].Collider = meshCollider;
-                    _cellIndexByCollider.Add(meshCollider, cellIndex);
-                }
+                MeshFilter meshFilter = fragmentObject.AddComponent<MeshFilter>();
+                meshFilter.sharedMesh = cell.Mesh;
+
+                MeshRenderer meshRenderer = fragmentObject.AddComponent<MeshRenderer>();
+                meshRenderer.sharedMaterial = _material;
+                cell.GameObject = fragmentObject;
+
+                MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
+                meshCollider.convex = true;
+                meshCollider.sharedMesh = cell.Mesh;
+                cell.Collider = meshCollider;
+                // Site indices and cell-list indices are aligned during generation.
+                _cellIndexByCollider.Add(meshCollider, cellIndex);
 
                 // DestructibleCell is a value type, so persist the updated object
                 // reference by assigning the modified copy back into the list.
@@ -562,10 +515,6 @@ namespace Windsmoon.DesctructibleBoard
                     DestructibleCell cell = _cellList[cellIndex];
                     cell.GameObject = null;
                     cell.Collider = null;
-                    if (cell.AdditionalParts != null)
-                    {
-                        foreach (FragmentPart part in cell.AdditionalParts) part.Collider = null;
-                    }
                     _cellList[cellIndex] = cell;
                 }
             }
@@ -601,13 +550,18 @@ namespace Windsmoon.DesctructibleBoard
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
                 DestructibleCell cell = _cellList[cellIndex];
-                for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
+                if (cell.Mesh == null)
                 {
-                    Mesh mesh = cell.GetMesh(partIndex);
-                    if (mesh == null) continue;
-                    if (Application.isPlaying) Destroy(mesh);
-                    else DestroyImmediate(mesh);
-                    if (partIndex > 0) cell.AdditionalParts[partIndex - 1].Mesh = null;
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(cell.Mesh);
+                }
+                else
+                {
+                    DestroyImmediate(cell.Mesh);
                 }
 
                 cell.Mesh = null;
@@ -617,7 +571,7 @@ namespace Windsmoon.DesctructibleBoard
 
         private Vector2 GetPanelVertex(int vertexIndex)
         {
-            if (IsRound)
+            if (_shape == Shape.Circle)
             {
                 // Increasing angles produce the counter-clockwise convex outline
                 // required by both half-plane clipping and fragment extrusion.
@@ -637,21 +591,12 @@ namespace Windsmoon.DesctructibleBoard
 
         private void DebugPanelOutline()
         {
-            DebugPanelOutline(1f);
-            if (_shape == Shape.Ring && _radius > 0f)
-            {
-                DebugPanelOutline(InnerRadius / _radius);
-            }
-        }
-
-        private void DebugPanelOutline(float radiusScale)
-        {
             float halfThickness = _thickness * 0.5f;
             int vertexCount = PanelVertexCount;
             for (int vertexIndex = 0; vertexIndex < vertexCount; vertexIndex++)
             {
-                Vector2 current = GetPanelVertex(vertexIndex) * radiusScale;
-                Vector2 next = GetPanelVertex((vertexIndex + 1) % vertexCount) * radiusScale;
+                Vector2 current = GetPanelVertex(vertexIndex);
+                Vector2 next = GetPanelVertex((vertexIndex + 1) % vertexCount);
                 Vector3 front = new Vector3(current.x, current.y, halfThickness);
                 Vector3 back = new Vector3(current.x, current.y, -halfThickness);
                 Gizmos.DrawLine(front, new Vector3(next.x, next.y, halfThickness));
@@ -688,16 +633,17 @@ namespace Windsmoon.DesctructibleBoard
         {
             foreach (DestructibleCell cell in _cellList)
             {
-                Gizmos.color = cell.IsBoundary ? Color.magenta : Color.green;
-                for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
+                if (cell.Polygon == null || cell.Polygon.Count < 2)
                 {
-                    List<Vector2> polygon = cell.GetPolygon(partIndex);
-                    for (int pointIndex = 0; pointIndex < polygon.Count; pointIndex++)
-                    {
-                        Vector2 current = polygon[pointIndex];
-                        Vector2 next = polygon[(pointIndex + 1) % polygon.Count];
-                        Gizmos.DrawLine(new Vector3(current.x, current.y, 0f), new Vector3(next.x, next.y, 0f));
-                    }
+                    continue;
+                }
+
+                Gizmos.color = cell.IsBoundary ? Color.magenta : Color.green;
+                for (int pointIndex = 0; pointIndex < cell.Polygon.Count; pointIndex++)
+                {
+                    Vector2 current = cell.Polygon[pointIndex];
+                    Vector2 next = cell.Polygon[(pointIndex + 1) % cell.Polygon.Count];
+                    Gizmos.DrawLine(new Vector3(current.x, current.y, 0f), new Vector3(next.x, next.y, 0f));
                 }
             } 
         }

@@ -10,7 +10,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
     {
         #region fields
         private readonly List<List<int>> _islands = new List<List<int>>();
-        private readonly Dictionary<int, List<Vector3[]>> _islandVertices = new Dictionary<int, List<Vector3[]>>();
+        private readonly Dictionary<int, Vector3[]> _islandVertices = new Dictionary<int, Vector3[]>();
         private readonly List<string> _islandLabels = new List<string>();
         private bool _showIslands;
         private int _previewColliderCount;
@@ -28,14 +28,9 @@ namespace Windsmoon.DesctructibleBoard.Editor
 
             SerializedProperty shape = serializedObject.FindProperty("_shape");
             EditorGUILayout.PropertyField(shape);
-            if ((Shape)shape.intValue == Shape.Circle || (Shape)shape.intValue == Shape.Ring)
+            if ((Shape)shape.intValue == Shape.Circle)
             {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("_radius"),
-                    new GUIContent((Shape)shape.intValue == Shape.Ring ? "Outer Radius" : "Radius"));
-                if ((Shape)shape.intValue == Shape.Ring)
-                {
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("_innerRadius"));
-                }
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_radius"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"));
             }
             else
@@ -44,7 +39,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_height"));
             }
 
-            DrawPropertiesExcluding(serializedObject, "m_Script", "_shape", "_width", "_height", "_radius", "_innerRadius", "_circleSegments");
+            DrawPropertiesExcluding(serializedObject, "m_Script", "_shape", "_width", "_height", "_radius", "_circleSegments");
             serializedObject.ApplyModifiedProperties();
 
             DestructibleBoard board = (DestructibleBoard)target;
@@ -144,19 +139,16 @@ namespace Windsmoon.DesctructibleBoard.Editor
                         foreach (int cellId in _islands[islandIndex])
                         {
                             if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.Destroyed ||
-                                !_islandVertices.TryGetValue(cellId, out List<Vector3[]> parts))
+                                !_islandVertices.TryGetValue(cellId, out Vector3[] vertices))
                             {
                                 continue;
                             }
 
-                            foreach (Vector3[] vertices in parts)
-                            {
-                                Handles.color = new Color(color.r, color.g, color.b, 0.3f);
-                                Handles.DrawAAConvexPolygon(vertices);
-                                Handles.color = color;
-                                Handles.DrawAAPolyLine(3f, vertices);
-                                Handles.DrawLine(vertices[vertices.Length - 1], vertices[0]);
-                            }
+                            Handles.color = new Color(color.r, color.g, color.b, 0.3f);
+                            Handles.DrawAAConvexPolygon(vertices);
+                            Handles.color = color;
+                            Handles.DrawAAPolyLine(3f, vertices);
+                            Handles.DrawLine(vertices[vertices.Length - 1], vertices[0]);
                             labelPosition += new Vector3(cell.Site.x, cell.Site.y, 0f);
                             visibleCellCount++;
                         }
@@ -196,20 +188,14 @@ namespace Windsmoon.DesctructibleBoard.Editor
                         continue;
                     }
 
-                    List<Vector3[]> parts = new List<Vector3[]>(cell.PartCount);
-                    for (int partIndex = 0; partIndex < cell.PartCount; partIndex++)
+                    Vector3[] vertices = new Vector3[cell.Polygon.Count];
+                    for (int vertexIndex = 0; vertexIndex < vertices.Length; vertexIndex++)
                     {
-                        List<Vector2> polygon = cell.GetPolygon(partIndex);
-                        Vector3[] vertices = new Vector3[polygon.Count];
-                        for (int vertexIndex = 0; vertexIndex < vertices.Length; vertexIndex++)
-                        {
-                            Vector2 point = polygon[vertexIndex];
-                            vertices[vertexIndex] = new Vector3(point.x, point.y, 0f);
-                        }
-                        parts.Add(vertices);
+                        Vector2 point = cell.Polygon[vertexIndex];
+                        vertices[vertexIndex] = new Vector3(point.x, point.y, 0f);
                     }
 
-                    _islandVertices.Add(cellId, parts);
+                    _islandVertices.Add(cellId, vertices);
                 }
             }
         }
