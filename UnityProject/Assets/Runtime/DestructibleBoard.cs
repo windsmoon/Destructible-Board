@@ -20,6 +20,10 @@ namespace Windsmoon.DesctructibleBoard
         private float _ellipseHorizontalRadius = 4f;
         [SerializeField, Min(0.01f)]
         private float _ellipseVerticalRadius = 2.5f;
+        [SerializeField, Min(0.01f)]
+        private float _capsuleWidth = 6f;
+        [SerializeField, Min(0.01f)]
+        private float _capsuleHeight = 3f;
         [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate curved panel outlines.")]
         private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
@@ -63,9 +67,19 @@ namespace Windsmoon.DesctructibleBoard
         {
             Shape.Circle => Vector2.one * (_radius * 2f),
             Shape.Ellipse => new Vector2(_ellipseHorizontalRadius * 2f, _ellipseVerticalRadius * 2f),
+            Shape.Capsule => new Vector2(_capsuleWidth, _capsuleHeight),
             _ => new Vector2(_width, _height),
         };
-        private int PanelVertexCount => _shape == Shape.Circle || _shape == Shape.Ellipse ? Mathf.Clamp(_circleSegments, 8, 64) : 4;
+        private int CurvedSegmentCount => Mathf.Clamp(_circleSegments, 8, 64);
+        private int CapsuleHalfArcSegmentCount => Mathf.Max(2, CurvedSegmentCount / 2);
+        private int PanelVertexCount => _shape switch
+        {
+            Shape.Circle => CurvedSegmentCount,
+            Shape.Ellipse => CurvedSegmentCount,
+            // one semicircle has (CapsuleHalfArcSegmentCount + 1) vertices, Capsule has two semicircles 
+            Shape.Capsule => Mathf.Approximately(_capsuleWidth, _capsuleHeight) ? CurvedSegmentCount : (CapsuleHalfArcSegmentCount + 1) * 2,
+            _ => 4,
+        };
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
@@ -587,6 +601,11 @@ namespace Windsmoon.DesctructibleBoard
                 return new Vector2(Mathf.Cos(angle) * radii.x, Mathf.Sin(angle) * radii.y);
             }
 
+            if (_shape == Shape.Capsule)
+            {
+                return GetCapsuleVertex(vertexIndex);
+            }
+
             Vector2 halfSize = PanelSize * 0.5f;
             return vertexIndex switch
             {
@@ -595,6 +614,43 @@ namespace Windsmoon.DesctructibleBoard
                 2 => new Vector2(halfSize.x, halfSize.y),
                 _ => new Vector2(-halfSize.x, halfSize.y),
             };
+        }
+
+        private Vector2 GetCapsuleVertex(int vertexIndex)
+        {
+            float halfWidth = _capsuleWidth * 0.5f;
+            float halfHeight = _capsuleHeight * 0.5f;
+            if (Mathf.Approximately(_capsuleWidth, _capsuleHeight))
+            {
+                float circleAngle = vertexIndex * (Mathf.PI * 2f / PanelVertexCount);
+                return new Vector2(Mathf.Cos(circleAngle), Mathf.Sin(circleAngle)) * halfWidth;
+            }
+
+            int halfArcSegments = CapsuleHalfArcSegmentCount;
+            bool isFirstArc = vertexIndex <= halfArcSegments;
+            int vertexIndexInArc = isFirstArc ? vertexIndex : vertexIndex - halfArcSegments - 1;
+            float arcProgress = vertexIndexInArc / (float)halfArcSegments;
+
+            // first semicircle is at right
+            // second is at left
+            if (_capsuleWidth > _capsuleHeight)
+            {
+                float radius = halfHeight;
+                float centerOffset = halfWidth - radius;
+                // we need the counterclockwise vertex order
+                float angle = (isFirstArc ? -Mathf.PI * 0.5f : Mathf.PI * 0.5f) + arcProgress * Mathf.PI;
+                float centerX = isFirstArc ? centerOffset : -centerOffset;
+                return new Vector2(centerX + Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
+            }
+
+            // same as before
+            // but first semicircle is at up, second is at down
+            float verticalRadius = halfWidth;
+            float verticalCenterOffset = halfHeight - verticalRadius;
+            // we need the counterclockwise vertex order
+            float verticalAngle = (isFirstArc ? 0f : Mathf.PI) + arcProgress * Mathf.PI;
+            float centerY = isFirstArc ? verticalCenterOffset : -verticalCenterOffset;
+            return new Vector2(Mathf.Cos(verticalAngle) * verticalRadius, centerY + Mathf.Sin(verticalAngle) * verticalRadius);
         }
 
         private void DebugPanelOutline()

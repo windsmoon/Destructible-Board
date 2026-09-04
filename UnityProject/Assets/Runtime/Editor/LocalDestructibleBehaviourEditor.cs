@@ -32,13 +32,19 @@ namespace Windsmoon.DesctructibleBoard.Editor
             if (selectedShape == Shape.Circle)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_radius"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"), new GUIContent("Curve Segments"));
             }
             else if (selectedShape == Shape.Ellipse)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_ellipseHorizontalRadius"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_ellipseVerticalRadius"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"), new GUIContent("Curve Segments"));
+            }
+            else if (selectedShape == Shape.Capsule)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_capsuleWidth"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_capsuleHeight"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"), new GUIContent("Curve Segments"));
             }
             else
             {
@@ -55,6 +61,8 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 "_radius",
                 "_ellipseHorizontalRadius",
                 "_ellipseVerticalRadius",
+                "_capsuleWidth",
+                "_capsuleHeight",
                 "_circleSegments");
             serializedObject.ApplyModifiedProperties();
 
