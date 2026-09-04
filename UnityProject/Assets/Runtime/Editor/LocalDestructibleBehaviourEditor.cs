@@ -55,7 +55,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
             }
             else if (selectedShape == Shape.RegularPolygon)
             {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonSides"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonEdgeCount"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonRadius"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonRotationAngle"));
             }
@@ -79,7 +79,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 "_sectorRadius",
                 "_sectorStartAngle",
                 "_sectorAngle",
-                "_regularPolygonSides",
+                "_regularPolygonEdgeCount",
                 "_regularPolygonRadius",
                 "_regularPolygonRotationAngle",
                 "_circleSegments");
