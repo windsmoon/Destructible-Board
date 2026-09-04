@@ -26,16 +26,12 @@ namespace Windsmoon.DesctructibleBoard
         private float _capsuleHeight = 3f;
         [SerializeField, Min(0.01f)]
         private float _sectorRadius = 3f;
-        [SerializeField, Range(-180f, 180f)]
-        private float _sectorStartAngle = -45f;
         [SerializeField, Range(1f, 180f)]
         private float _sectorAngle = 90f;
-        [SerializeField, Range(3, 64)]
+        [SerializeField, Range(3, 32)]
         private int _regularPolygonEdgeCount = 6;
         [SerializeField, Min(0.01f)]
         private float _regularPolygonRadius = 3f;
-        [SerializeField, Range(-180f, 180f)]
-        private float _regularPolygonRotationAngle = 0f;
         [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate curved panel outlines.")]
         private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
@@ -693,14 +689,14 @@ namespace Windsmoon.DesctructibleBoard
 
             int arcVertexIndex = vertexIndex - 1;
             float arcProgress = arcVertexIndex / (float)SectorArcSegmentCount;
-            float angle = (_sectorStartAngle + arcProgress * _sectorAngle) * Mathf.Deg2Rad;
+            float angle = arcProgress * _sectorAngle * Mathf.Deg2Rad;
             return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _sectorRadius;
         }
 
         private Vector2 GetRegularPolygonVertex(int vertexIndex)
         {
             float angleStep = Mathf.PI * 2f / PanelVertexCount;
-            float angle = _regularPolygonRotationAngle * Mathf.Deg2Rad + vertexIndex * angleStep;
+            float angle = vertexIndex * angleStep;
             return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _regularPolygonRadius;
         }
 

@@ -49,7 +49,6 @@ namespace Windsmoon.DesctructibleBoard.Editor
             else if (selectedShape == Shape.Sector)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_sectorRadius"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("_sectorStartAngle"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_sectorAngle"), new GUIContent("Sector Angle"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"), new GUIContent("Curve Segments"));
             }
@@ -57,7 +56,6 @@ namespace Windsmoon.DesctructibleBoard.Editor
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonEdgeCount"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonRadius"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("_regularPolygonRotationAngle"));
             }
             else
             {
@@ -77,11 +75,9 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 "_capsuleWidth",
                 "_capsuleHeight",
                 "_sectorRadius",
-                "_sectorStartAngle",
                 "_sectorAngle",
                 "_regularPolygonEdgeCount",
                 "_regularPolygonRadius",
-                "_regularPolygonRotationAngle",
                 "_circleSegments");
             serializedObject.ApplyModifiedProperties();
 
