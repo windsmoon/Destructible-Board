@@ -16,7 +16,11 @@ namespace Windsmoon.DesctructibleBoard
         private float _height = 6f;
         [SerializeField, Min(0.01f)]
         private float _radius = 3f;
-        [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate the circle.")]
+        [SerializeField, Min(0.01f)]
+        private float _ellipseHorizontalRadius = 4f;
+        [SerializeField, Min(0.01f)]
+        private float _ellipseVerticalRadius = 2.5f;
+        [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate curved panel outlines.")]
         private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
         private float _thickness = 0.2f;
@@ -55,10 +59,13 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
-        private Vector2 PanelSize => _shape == Shape.Circle
-            ? Vector2.one * (_radius * 2f)
-            : new Vector2(_width, _height);
-        private int PanelVertexCount => _shape == Shape.Circle ? Mathf.Clamp(_circleSegments, 8, 64) : 4;
+        private Vector2 PanelSize => _shape switch
+        {
+            Shape.Circle => Vector2.one * (_radius * 2f),
+            Shape.Ellipse => new Vector2(_ellipseHorizontalRadius * 2f, _ellipseVerticalRadius * 2f),
+            _ => new Vector2(_width, _height),
+        };
+        private int PanelVertexCount => _shape == Shape.Circle || _shape == Shape.Ellipse ? Mathf.Clamp(_circleSegments, 8, 64) : 4;
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
@@ -571,12 +578,13 @@ namespace Windsmoon.DesctructibleBoard
 
         private Vector2 GetPanelVertex(int vertexIndex)
         {
-            if (_shape == Shape.Circle)
+            if (_shape == Shape.Circle || _shape == Shape.Ellipse)
             {
                 // Increasing angles produce the counter-clockwise convex outline
                 // required by both half-plane clipping and fragment extrusion.
                 float angle = vertexIndex * (Mathf.PI * 2f / PanelVertexCount);
-                return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _radius;
+                Vector2 radii = _shape == Shape.Circle ? Vector2.one * _radius : new Vector2(_ellipseHorizontalRadius, _ellipseVerticalRadius);
+                return new Vector2(Mathf.Cos(angle) * radii.x, Mathf.Sin(angle) * radii.y);
             }
 
             Vector2 halfSize = PanelSize * 0.5f;

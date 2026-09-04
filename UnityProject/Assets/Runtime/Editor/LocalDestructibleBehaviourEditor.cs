@@ -28,9 +28,16 @@ namespace Windsmoon.DesctructibleBoard.Editor
 
             SerializedProperty shape = serializedObject.FindProperty("_shape");
             EditorGUILayout.PropertyField(shape);
-            if ((Shape)shape.intValue == Shape.Circle)
+            Shape selectedShape = (Shape)shape.intValue;
+            if (selectedShape == Shape.Circle)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_radius"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"));
+            }
+            else if (selectedShape == Shape.Ellipse)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_ellipseHorizontalRadius"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("_ellipseVerticalRadius"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_circleSegments"));
             }
             else
@@ -39,7 +46,16 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("_height"));
             }
 
-            DrawPropertiesExcluding(serializedObject, "m_Script", "_shape", "_width", "_height", "_radius", "_circleSegments");
+            DrawPropertiesExcluding(
+                serializedObject,
+                "m_Script",
+                "_shape",
+                "_width",
+                "_height",
+                "_radius",
+                "_ellipseHorizontalRadius",
+                "_ellipseVerticalRadius",
+                "_circleSegments");
             serializedObject.ApplyModifiedProperties();
 
             DestructibleBoard board = (DestructibleBoard)target;
