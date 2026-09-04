@@ -24,6 +24,12 @@ namespace Windsmoon.DesctructibleBoard
         private float _capsuleWidth = 6f;
         [SerializeField, Min(0.01f)]
         private float _capsuleHeight = 3f;
+        [SerializeField, Min(0.01f)]
+        private float _sectorRadius = 3f;
+        [SerializeField, Range(-180f, 180f)]
+        private float _sectorStartAngle = -45f;
+        [SerializeField, Range(1f, 180f)]
+        private float _sectorAngle = 90f;
         [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate curved panel outlines.")]
         private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
@@ -68,16 +74,22 @@ namespace Windsmoon.DesctructibleBoard
             Shape.Circle => Vector2.one * (_radius * 2f),
             Shape.Ellipse => new Vector2(_ellipseHorizontalRadius * 2f, _ellipseVerticalRadius * 2f),
             Shape.Capsule => new Vector2(_capsuleWidth, _capsuleHeight),
+            // Sector rotation can place its arc anywhere around the origin, so use
+            // the containing circle as the centered sampling bounds.
+            Shape.Sector => Vector2.one * (_sectorRadius * 2f),
             _ => new Vector2(_width, _height),
         };
         private int CurvedSegmentCount => Mathf.Clamp(_circleSegments, 8, 64);
         private int CapsuleHalfArcSegmentCount => Mathf.Max(2, CurvedSegmentCount / 2);
+        private int SectorArcSegmentCount => Mathf.Max(1, Mathf.CeilToInt(CurvedSegmentCount * (_sectorAngle / 360f)));
         private int PanelVertexCount => _shape switch
         {
             Shape.Circle => CurvedSegmentCount,
             Shape.Ellipse => CurvedSegmentCount,
             // one semicircle has (CapsuleHalfArcSegmentCount + 1) vertices, Capsule has two semicircles 
             Shape.Capsule => Mathf.Approximately(_capsuleWidth, _capsuleHeight) ? CurvedSegmentCount : (CapsuleHalfArcSegmentCount + 1) * 2,
+            // One center vertex plus both endpoints of the subdivided arc.
+            Shape.Sector => SectorArcSegmentCount + 2,
             _ => 4,
         };
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
@@ -606,6 +618,11 @@ namespace Windsmoon.DesctructibleBoard
                 return GetCapsuleVertex(vertexIndex);
             }
 
+            if (_shape == Shape.Sector)
+            {
+                return GetSectorVertex(vertexIndex);
+            }
+
             Vector2 halfSize = PanelSize * 0.5f;
             return vertexIndex switch
             {
@@ -651,6 +668,19 @@ namespace Windsmoon.DesctructibleBoard
             float verticalAngle = (isFirstArc ? 0f : Mathf.PI) + arcProgress * Mathf.PI;
             float centerY = isFirstArc ? verticalCenterOffset : -verticalCenterOffset;
             return new Vector2(Mathf.Cos(verticalAngle) * verticalRadius, centerY + Mathf.Sin(verticalAngle) * verticalRadius);
+        }
+
+        private Vector2 GetSectorVertex(int vertexIndex)
+        {
+            if (vertexIndex == 0)
+            {
+                return Vector2.zero;
+            }
+
+            int arcVertexIndex = vertexIndex - 1;
+            float arcProgress = arcVertexIndex / (float)SectorArcSegmentCount;
+            float angle = (_sectorStartAngle + arcProgress * _sectorAngle) * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _sectorRadius;
         }
 
         private void DebugPanelOutline()

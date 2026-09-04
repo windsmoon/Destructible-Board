@@ -6,5 +6,6 @@ namespace Windsmoon.DesctructibleBoard
         Circle = 1,
         Ellipse = 2,
         Capsule = 3,
+        Sector = 4,
     }
 }
