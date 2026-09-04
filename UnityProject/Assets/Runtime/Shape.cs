@@ -7,5 +7,6 @@ namespace Windsmoon.DesctructibleBoard
         Ellipse = 2,
         Capsule = 3,
         Sector = 4,
+        RegularPolygon = 5,
     }
 }

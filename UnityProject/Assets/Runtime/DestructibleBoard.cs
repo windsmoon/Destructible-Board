@@ -30,6 +30,12 @@ namespace Windsmoon.DesctructibleBoard
         private float _sectorStartAngle = -45f;
         [SerializeField, Range(1f, 180f)]
         private float _sectorAngle = 90f;
+        [SerializeField, Range(3, 64)]
+        private int _regularPolygonEdgeCount = 6;
+        [SerializeField, Min(0.01f)]
+        private float _regularPolygonRadius = 3f;
+        [SerializeField, Range(-180f, 180f)]
+        private float _regularPolygonRotationAngle = 0f;
         [SerializeField, Range(8, 64), Tooltip("Number of straight edges used to approximate curved panel outlines.")]
         private int _circleSegments = 64;
         [SerializeField, Min(0.01f)] 
@@ -77,6 +83,8 @@ namespace Windsmoon.DesctructibleBoard
             // Sector rotation can place its arc anywhere around the origin, so use
             // the containing circle as the centered sampling bounds.
             Shape.Sector => Vector2.one * (_sectorRadius * 2f),
+            // Rotation changes the exact AABB, so keep a stable centered bound.
+            Shape.RegularPolygon => Vector2.one * (_regularPolygonRadius * 2f),
             _ => new Vector2(_width, _height),
         };
         private int CurvedSegmentCount => Mathf.Clamp(_circleSegments, 8, 64);
@@ -90,6 +98,7 @@ namespace Windsmoon.DesctructibleBoard
             Shape.Capsule => Mathf.Approximately(_capsuleWidth, _capsuleHeight) ? CurvedSegmentCount : (CapsuleHalfArcSegmentCount + 1) * 2,
             // One center vertex plus both endpoints of the subdivided arc.
             Shape.Sector => SectorArcSegmentCount + 2,
+            Shape.RegularPolygon => Mathf.Clamp(_regularPolygonEdgeCount, 3, 64),
             _ => 4,
         };
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
@@ -623,6 +632,11 @@ namespace Windsmoon.DesctructibleBoard
                 return GetSectorVertex(vertexIndex);
             }
 
+            if (_shape == Shape.RegularPolygon)
+            {
+                return GetRegularPolygonVertex(vertexIndex);
+            }
+
             Vector2 halfSize = PanelSize * 0.5f;
             return vertexIndex switch
             {
@@ -681,6 +695,13 @@ namespace Windsmoon.DesctructibleBoard
             float arcProgress = arcVertexIndex / (float)SectorArcSegmentCount;
             float angle = (_sectorStartAngle + arcProgress * _sectorAngle) * Mathf.Deg2Rad;
             return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _sectorRadius;
+        }
+
+        private Vector2 GetRegularPolygonVertex(int vertexIndex)
+        {
+            float angleStep = Mathf.PI * 2f / PanelVertexCount;
+            float angle = _regularPolygonRotationAngle * Mathf.Deg2Rad + vertexIndex * angleStep;
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _regularPolygonRadius;
         }
 
         private void DebugPanelOutline()
