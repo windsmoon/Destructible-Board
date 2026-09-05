@@ -149,7 +149,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
             }
 
             DestructibleBoard board = (DestructibleBoard)target;
-            IReadOnlyList<Vector2> firstPolygon = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.Polygon : null;
+            IReadOnlyList<Vector2> firstPolygon = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.PolygonVertexList : null;
             // Logical destruction removes collider entries; Generate replaces polygons.
             // Refresh on those changes instead of allocating query results every repaint.
             if (board.ColliderCount != _previewColliderCount || !ReferenceEquals(firstPolygon, _previewFirstPolygon))
@@ -214,7 +214,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
             _islandLabels.Clear();
             board.TryGetIslands(_islands);
             _previewColliderCount = board.ColliderCount;
-            _previewFirstPolygon = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.Polygon : null;
+            _previewFirstPolygon = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.PolygonVertexList : null;
 
             for (int islandIndex = 0; islandIndex < _islands.Count; islandIndex++)
             {
@@ -222,15 +222,15 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 _islandLabels.Add($"Island {islandIndex + 1} ({island.Count} cells)");
                 foreach (int cellId in island)
                 {
-                    if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.Polygon == null || cell.Polygon.Count < 3)
+                    if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.PolygonVertexList == null || cell.PolygonVertexList.Count < 3)
                     {
                         continue;
                     }
 
-                    Vector3[] vertices = new Vector3[cell.Polygon.Count];
+                    Vector3[] vertices = new Vector3[cell.PolygonVertexList.Count];
                     for (int vertexIndex = 0; vertexIndex < vertices.Length; vertexIndex++)
                     {
-                        Vector2 point = cell.Polygon[vertexIndex];
+                        Vector2 point = cell.PolygonVertexList[vertexIndex];
                         vertices[vertexIndex] = new Vector3(point.x, point.y, 0f);
                     }
 

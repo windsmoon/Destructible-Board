@@ -111,7 +111,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             int cellCount = board.CellList.Count;
             bool[] enqueued = new bool[cellCount];
             Queue<int> pending = new Queue<int>(cellCount);
-            IReadOnlyList<int> startNeighbors = startCell.NeighborList;
+            IReadOnlyList<int> startNeighbors = startCell.NeighborIdList;
             WaitForSeconds dropDelay = _dropInterval > 0f ? new WaitForSeconds(_dropInterval) : null;
 
             // Start from the hit cell: capture its surviving neighbors into the
@@ -126,7 +126,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 // instead of applying its queued IDs to a newly generated board.
                 if (board == null || board.CellList.Count != cellCount ||
                     !board.TryGetCell(startCellId, out startCell) ||
-                    !ReferenceEquals(startCell.NeighborList, startNeighbors))
+                    !ReferenceEquals(startCell.NeighborIdList, startNeighbors))
                 {
                     yield break;
                 }
@@ -162,7 +162,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             bool[] enqueued,
             Queue<int> pending)
         {
-            foreach (int neighborId in cell.NeighborList)
+            foreach (int neighborId in cell.NeighborIdList)
             {
                 if (enqueued[neighborId])
                 {

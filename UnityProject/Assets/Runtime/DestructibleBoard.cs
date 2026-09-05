@@ -115,7 +115,7 @@ namespace Windsmoon.DesctructibleBoard
                 int regionCount = 0;
                 for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
                 {
-                    IReadOnlyList<Vector2> polygon = _cellList[cellIndex].Polygon;
+                    IReadOnlyList<Vector2> polygon = _cellList[cellIndex].PolygonVertexList;
                     if (polygon.Count >= 3)
                     {
                         regionCount++;
@@ -384,7 +384,7 @@ namespace Windsmoon.DesctructibleBoard
                         continue;
                     }
 
-                    IReadOnlyList<int> neighborList = cell.NeighborList;
+                    IReadOnlyList<int> neighborList = cell.NeighborIdList;
                     foreach (var neighborId in neighborList)
                     {
                         // has found
@@ -465,7 +465,7 @@ namespace Windsmoon.DesctructibleBoard
 
                     // Finish traversing even after finding support, so the rest of
                     // this component cannot be mistaken for a separate island.
-                    foreach (int neighborId in cell.NeighborList)
+                    foreach (int neighborId in cell.NeighborIdList)
                     {
                         if (_cellList[neighborId].Destroyed || _searchVisitVersions[neighborId] == _searchVersion)
                         {
@@ -577,7 +577,7 @@ namespace Windsmoon.DesctructibleBoard
 
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
-                IReadOnlyList<Vector2> polygon = _cellList[cellIndex].Polygon;
+                IReadOnlyList<Vector2> polygon = _cellList[cellIndex].PolygonVertexList;
                 // Use the generator's topology formulas without allocating vertex
                 // arrays, triangle indices, or a Unity Mesh object.
                 _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(polygon.Count);
@@ -590,7 +590,7 @@ namespace Windsmoon.DesctructibleBoard
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
                 DestructibleCell cell = _cellList[cellIndex];
-                cell.Mesh = FragmentMeshGenerator.Generate(cell.Polygon, _thickness);
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertexList, _thickness);
                 cell.Mesh.name = $"Fragment Mesh {cell.Id}";
                 _cellList[cellIndex] = cell;
             }
@@ -829,16 +829,16 @@ namespace Windsmoon.DesctructibleBoard
         {
             foreach (DestructibleCell cell in _cellList)
             {
-                if (cell.Polygon == null || cell.Polygon.Count < 2)
+                if (cell.PolygonVertexList == null || cell.PolygonVertexList.Count < 2)
                 {
                     continue;
                 }
 
                 Gizmos.color = cell.IsBoundary ? Color.magenta : Color.green;
-                for (int pointIndex = 0; pointIndex < cell.Polygon.Count; pointIndex++)
+                for (int pointIndex = 0; pointIndex < cell.PolygonVertexList.Count; pointIndex++)
                 {
-                    Vector2 current = cell.Polygon[pointIndex];
-                    Vector2 next = cell.Polygon[(pointIndex + 1) % cell.Polygon.Count];
+                    Vector2 current = cell.PolygonVertexList[pointIndex];
+                    Vector2 next = cell.PolygonVertexList[(pointIndex + 1) % cell.PolygonVertexList.Count];
                     Gizmos.DrawLine(new Vector3(current.x, current.y, 0f), new Vector3(next.x, next.y, 0f));
                 }
             } 

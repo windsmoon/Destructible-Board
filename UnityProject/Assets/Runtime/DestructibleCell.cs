@@ -15,15 +15,15 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private Vector2 _site;
         [SerializeField]
-        private List<Vector2> _polygon;
+        private List<Vector2> _polygonVertexList;
         [SerializeField]
-        private List<int> _neighborList;
+        private List<int> _neighborIdList;
         [SerializeField]
         private bool _isBoundary;
         [NonSerialized]
-        private ReadOnlyCollection<Vector2> _polygonView;
+        private ReadOnlyCollection<Vector2> _polygonVertexView;
         [NonSerialized]
-        private ReadOnlyCollection<int> _neighborView;
+        private ReadOnlyCollection<int> _neighborIdView;
 
         [NonSerialized]
         public Mesh Mesh;
@@ -41,10 +41,10 @@ namespace Windsmoon.DesctructibleBoard
         {
             _id = id;
             _site = site;
-            _polygon = new List<Vector2>();
-            _neighborList = new List<int>();
-            _polygonView = _polygon.AsReadOnly();
-            _neighborView = _neighborList.AsReadOnly();
+            _polygonVertexList = new List<Vector2>();
+            _neighborIdList = new List<int>();
+            _polygonVertexView = _polygonVertexList.AsReadOnly();
+            _neighborIdView = _neighborIdList.AsReadOnly();
         }
         #endregion
 
@@ -52,12 +52,12 @@ namespace Windsmoon.DesctructibleBoard
         public int Id => _id;
         public Vector2 Site => _site;
         // Prepared views avoid lazy initialization on struct copies and mutable-list casts.
-        public IReadOnlyList<Vector2> Polygon => _polygonView;
-        public IReadOnlyList<int> NeighborList => _neighborView;
+        public IReadOnlyList<Vector2> PolygonVertexList => _polygonVertexView;
+        public IReadOnlyList<int> NeighborIdList => _neighborIdView;
         public bool IsBoundary => _isBoundary;
         // Geometry builders populate these lists before the layout is used by instances.
-        internal List<Vector2> MutablePolygon => _polygon;
-        internal List<int> MutableNeighborList => _neighborList;
+        internal List<Vector2> MutablePolygonVertexList => _polygonVertexList;
+        internal List<int> MutableNeighborIdList => _neighborIdList;
         #endregion
 
         #region methods
@@ -72,10 +72,10 @@ namespace Windsmoon.DesctructibleBoard
 
         public void OnAfterDeserialize()
         {
-            _polygon ??= new List<Vector2>();
-            _neighborList ??= new List<int>();
-            _polygonView = _polygon.AsReadOnly();
-            _neighborView = _neighborList.AsReadOnly();
+            _polygonVertexList ??= new List<Vector2>();
+            _neighborIdList ??= new List<int>();
+            _polygonVertexView = _polygonVertexList.AsReadOnly();
+            _neighborIdView = _neighborIdList.AsReadOnly();
         }
         #endregion
     }
