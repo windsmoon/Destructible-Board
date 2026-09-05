@@ -181,6 +181,21 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary>
+        /// Configures a rectangular panel before runtime generation.
+        /// </summary>
+        public void ConfigureRectangle(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, Material material)
+        {
+            _shape = Shape.Rectangle;
+            _width = Mathf.Max(0.01f, width);
+            _height = Mathf.Max(0.01f, height);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _material = material;
+        }
+
+        /// <summary>
         /// Configures a circular panel before runtime generation. This is useful for
         /// samples and other procedurally assembled scenes that cannot serialize a
         /// preconfigured component.
@@ -194,6 +209,69 @@ namespace Windsmoon.DesctructibleBoard
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
             _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _material = material;
+        }
+
+        /// <summary>
+        /// Configures an elliptical panel before runtime generation.
+        /// </summary>
+        public void ConfigureEllipse(float horizontalRadius, float verticalRadius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        {
+            _shape = Shape.Ellipse;
+            _ellipseHorizontalRadius = Mathf.Max(0.01f, horizontalRadius);
+            _ellipseVerticalRadius = Mathf.Max(0.01f, verticalRadius);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _material = material;
+        }
+
+        /// <summary>
+        /// Configures a capsule panel using its full width and height before runtime generation.
+        /// </summary>
+        public void ConfigureCapsule(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        {
+            _shape = Shape.Capsule;
+            _capsuleWidth = Mathf.Max(0.01f, width);
+            _capsuleHeight = Mathf.Max(0.01f, height);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _material = material;
+        }
+
+        /// <summary>
+        /// Configures a sector panel with an angle in degrees before runtime generation.
+        /// </summary>
+        public void ConfigureSector(float radius, float angle, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        {
+            _shape = Shape.Sector;
+            _sectorRadius = Mathf.Max(0.01f, radius);
+            _sectorAngle = Mathf.Clamp(angle, 1f, 180f);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _material = material;
+        }
+
+        /// <summary>
+        /// Configures a regular polygon panel using its circumradius before runtime generation.
+        /// </summary>
+        public void ConfigureRegularPolygon(float radius, int edgeCount, float thickness, float fragmentSize, int seed, int maxFragmentCount, Material material)
+        {
+            _shape = Shape.RegularPolygon;
+            _regularPolygonRadius = Mathf.Max(0.01f, radius);
+            _regularPolygonEdgeCount = Mathf.Clamp(edgeCount, 3, 32);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
             _material = material;
         }
 
