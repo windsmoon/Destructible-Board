@@ -615,6 +615,13 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             ValidateCellData();
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                if (_cellList[cellIndex].Mesh == null)
+                {
+                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
+                }
+            }
             ClearRuntimeFragments();
             CreateFragmentObjects();
         }
