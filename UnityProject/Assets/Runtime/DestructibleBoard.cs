@@ -130,8 +130,7 @@ namespace Windsmoon.DesctructibleBoard
         #region unity methods
         private void OnDestroy()
         {
-            ReleaseGameObjects();
-            ReleaseFragmentMeshes();
+            ClearFragmentMeshes();
         }
 
         private void OnDrawGizmos()
@@ -488,17 +487,24 @@ namespace Windsmoon.DesctructibleBoard
             return islands.Count > 0;
         }
 
+        /// <summary>Regenerates the layout; edit mode keeps data only, as before.</summary>
         public void Generate()
         {
+            GenerateCellData();
+            if (Application.isPlaying)
+            {
+                GenerateFragmentMeshes();
+                CreateRuntimeFragments();
+            }
+        }
+
+        /// <summary>Replaces cell topology and clears all resources derived from the old layout.</summary>
+        public void GenerateCellData()
+        {
+            ClearGeneratedData();
             _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
             _siteList ??= new List<Vector2>(_maxFragmentCount);
             _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
-
-            ReleaseGameObjects();
-            ReleaseFragmentMeshes();
-            _cellList.Clear();
-            _siteList.Clear();
-            _delaunayTriangleList.Clear();
 
             // Sampling, clipping and preview all use the same local-space outline.
             _panelPolygonVertices.Clear();
@@ -512,14 +518,6 @@ namespace Windsmoon.DesctructibleBoard
             GenerateVoronoiCells();
             GenerateNeighborGraph();
             CalculateFragmentMeshDebugInfo();
-
-            // Editor preview only needs deterministic geometry data and counts.
-            // Allocate Unity Mesh objects only during runtime initialization.
-            if (Application.isPlaying)
-            {
-                GenerateFragmentMeshes();
-                CreateGameObjects();
-            }
         }
         
         private void GenerateSamplePoints()
@@ -585,18 +583,51 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        private void GenerateFragmentMeshes()
+        /// <summary>
+        /// Rebuilds meshes from existing cells and current thickness, without resampling.
+        /// Removes old fragment objects. Does not create renderers or colliders.
+        /// </summary>
+        public void GenerateFragmentMeshes()
         {
+            ValidateCellData();
+            if (_thickness <= 0f)
+            {
+                throw new InvalidOperationException("Mesh generation requires a finite positive thickness.");
+            }
+
+            ClearFragmentMeshes();
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
                 DestructibleCell cell = _cellList[cellIndex];
                 cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
-                cell.Mesh.name = $"Fragment Mesh {cell.Id}";
                 _cellList[cellIndex] = cell;
+                cell.Mesh.name = $"Fragment Mesh {cell.Id}";
+            }
+            CalculateFragmentMeshDebugInfo();
+        }
+
+        /// <summary>Recreates intact runtime fragments from existing meshes and cell data.</summary>
+        public void CreateRuntimeFragments()
+        {
+            if (Application.isPlaying == false)
+            {
+                throw new InvalidOperationException("Runtime fragments can only be created in play mode.");
+            }
+
+            ValidateCellData();
+            ClearRuntimeFragments();
+            CreateFragmentObjects();
+        }
+
+        private void ValidateCellData()
+        {
+            if (_cellList == null || _cellList.Count == 0)
+            {
+                throw new InvalidOperationException("Generate cell data before building meshes or runtime fragments.");
             }
         }
 
-        private void CreateGameObjects()
+        private void CreateFragmentObjects()
         {
             GameObject fragmentRootObject = new GameObject("Fragments");
             fragmentRootObject.layer = gameObject.layer;
@@ -627,7 +658,8 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        private void ReleaseGameObjects()
+        /// <summary> Clears instance objects and damage state, preserving topology and meshes.</summary>
+        public void ClearRuntimeFragments()
         {
             // Invalidate old lookups before deferred GameObject destruction.
             _cellIndexByCollider.Clear();
@@ -636,6 +668,12 @@ namespace Windsmoon.DesctructibleBoard
                 for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
                 {
                     DestructibleCell cell = _cellList[cellIndex];
+                    // Samples can reparent falling fragments outside the generated root.
+                    // They must stop using the board's meshes before those meshes are released.
+                    if (cell.GameObject != null)
+                    {
+                        DestroyFragmentObject(cell.GameObject);
+                    }
                     cell.GameObject = null;
                     cell.Collider = null;
                     _cellList[cellIndex] = cell;
@@ -650,21 +688,28 @@ namespace Windsmoon.DesctructibleBoard
             GameObject fragmentRootObject = _root.gameObject;
             _root = null;
 
+            DestroyFragmentObject(fragmentRootObject);
+        }
+
+        private static void DestroyFragmentObject(GameObject fragmentObject)
+        {
             if (Application.isPlaying)
             {
                 // Disable immediately so repeated generation in the same frame does
                 // not leave the old fragments visible until deferred destruction.
-                fragmentRootObject.SetActive(false);
-                Destroy(fragmentRootObject);
+                fragmentObject.SetActive(false);
+                Destroy(fragmentObject);
             }
             else
             {
-                DestroyImmediate(fragmentRootObject);
+                DestroyImmediate(fragmentObject);
             }
         }
 
-        private void ReleaseFragmentMeshes()
+        /// <summary> Clears generated meshes and their consumers, preserving cell topology.</summary>
+        public void ClearFragmentMeshes()
         {
+            ClearRuntimeFragments();
             if (_cellList == null)
             {
                 return;
@@ -690,6 +735,22 @@ namespace Windsmoon.DesctructibleBoard
                 cell.Mesh = null;
                 _cellList[cellIndex] = cell;
             }
+        }
+
+        /// <summary>Clears topology, derived resources, generation statistics and search caches.</summary>
+        public void ClearGeneratedData()
+        {
+            ClearFragmentMeshes();
+            _cellList?.Clear();
+            _siteList?.Clear();
+            _delaunayTriangleList?.Clear();
+            _panelPolygonVertices.Clear();
+            _fragmentVertexCount = 0;
+            _fragmentTriangleCount = 0;
+            _currentSearchLayer.Clear();
+            _nextSearchLayer.Clear();
+            Array.Clear(_searchVisitVersions, 0, _searchVisitVersions.Length);
+            _searchVersion = 0;
         }
 
         private Vector2 GetPanelVertex(int vertexIndex)
