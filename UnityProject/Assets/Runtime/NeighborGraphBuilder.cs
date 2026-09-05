@@ -56,7 +56,7 @@ namespace Windsmoon.DesctructibleBoard
 
             for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
             {
-                cellList[cellIndex].NeighborList.Sort();
+                cellList[cellIndex].MutableNeighborList.Sort();
             }
         }
 
@@ -71,8 +71,8 @@ namespace Windsmoon.DesctructibleBoard
 
             // Candidate pairs are unique, so these two writes create a symmetric,
             // duplicate-free graph without an additional search per insertion.
-            firstCell.NeighborList.Add(secondCell.Id);
-            secondCell.NeighborList.Add(firstCell.Id);
+            firstCell.MutableNeighborList.Add(secondCell.Id);
+            secondCell.MutableNeighborList.Add(firstCell.Id);
         }
 
         private static bool SharesPolygonEdge(IReadOnlyList<Vector2> firstPolygon, IReadOnlyList<Vector2> secondPolygon, float positionTolerance)

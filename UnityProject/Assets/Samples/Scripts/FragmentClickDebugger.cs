@@ -111,7 +111,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             int cellCount = board.CellList.Count;
             bool[] enqueued = new bool[cellCount];
             Queue<int> pending = new Queue<int>(cellCount);
-            List<int> startNeighbors = startCell.NeighborList;
+            IReadOnlyList<int> startNeighbors = startCell.NeighborList;
             WaitForSeconds dropDelay = _dropInterval > 0f ? new WaitForSeconds(_dropInterval) : null;
 
             // Start from the hit cell: capture its surviving neighbors into the

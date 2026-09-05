@@ -115,7 +115,7 @@ namespace Windsmoon.DesctructibleBoard
                 int regionCount = 0;
                 for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
                 {
-                    List<Vector2> polygon = _cellList[cellIndex].Polygon;
+                    IReadOnlyList<Vector2> polygon = _cellList[cellIndex].Polygon;
                     if (polygon.Count >= 3)
                     {
                         regionCount++;
@@ -318,7 +318,7 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             cell.Destroyed = true;
-            // DestructibleCell is a value type, so persist the changed state.
+            // List indexing returns a struct copy; persist instance state explicitly.
             _cellList[cellId] = cell;
 
             // A logically destroyed collider no longer represents an active board cell.
@@ -384,7 +384,7 @@ namespace Windsmoon.DesctructibleBoard
                         continue;
                     }
 
-                    List<int> neighborList = cell.NeighborList;
+                    IReadOnlyList<int> neighborList = cell.NeighborList;
                     foreach (var neighborId in neighborList)
                     {
                         // has found
@@ -577,7 +577,7 @@ namespace Windsmoon.DesctructibleBoard
 
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
-                List<Vector2> polygon = _cellList[cellIndex].Polygon;
+                IReadOnlyList<Vector2> polygon = _cellList[cellIndex].Polygon;
                 // Use the generator's topology formulas without allocating vertex
                 // arrays, triangle indices, or a Unity Mesh object.
                 _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(polygon.Count);
@@ -592,8 +592,6 @@ namespace Windsmoon.DesctructibleBoard
                 DestructibleCell cell = _cellList[cellIndex];
                 cell.Mesh = FragmentMeshGenerator.Generate(cell.Polygon, _thickness);
                 cell.Mesh.name = $"Fragment Mesh {cell.Id}";
-                // DestructibleCell is a value type, so persist the updated Mesh
-                // reference by assigning the modified copy back into the list.
                 _cellList[cellIndex] = cell;
             }
         }
@@ -623,12 +621,9 @@ namespace Windsmoon.DesctructibleBoard
                 meshCollider.convex = true;
                 meshCollider.sharedMesh = cell.Mesh;
                 cell.Collider = meshCollider;
+                _cellList[cellIndex] = cell;
                 // Site indices and cell-list indices are aligned during generation.
                 _cellIndexByCollider.Add(meshCollider, cellIndex);
-
-                // DestructibleCell is a value type, so persist the updated object
-                // reference by assigning the modified copy back into the list.
-                _cellList[cellIndex] = cell;
             }
         }
 

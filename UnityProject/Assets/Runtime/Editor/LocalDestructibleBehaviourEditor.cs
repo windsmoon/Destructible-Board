@@ -14,7 +14,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
         private readonly List<string> _islandLabels = new List<string>();
         private bool _showIslands;
         private int _previewColliderCount;
-        private List<Vector2> _previewFirstPolygon;
+        private IReadOnlyList<Vector2> _previewFirstPolygon;
         #endregion
 
         #region unity methods
@@ -149,7 +149,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
             }
 
             DestructibleBoard board = (DestructibleBoard)target;
-            List<Vector2> firstPolygon = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.Polygon : null;
+            IReadOnlyList<Vector2> firstPolygon = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.Polygon : null;
             // Logical destruction removes collider entries; Generate replaces polygons.
             // Refresh on those changes instead of allocating query results every repaint.
             if (board.ColliderCount != _previewColliderCount || !ReferenceEquals(firstPolygon, _previewFirstPolygon))

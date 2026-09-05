@@ -57,9 +57,8 @@ namespace Windsmoon.DesctructibleBoard
                 }
 
                 DestructibleCell cell = cellList[siteIndex];
-                cell.Polygon ??= new List<Vector2>(currentPolygon.Count);
-                CopyCleanCounterClockwisePolygon(currentPolygon, cell.Polygon);
-                cell.IsBoundary = SharesPanelBoundaryEdge(cell.Polygon, panelPolygon, boundaryTolerance);
+                CopyCleanCounterClockwisePolygon(currentPolygon, cell.MutablePolygon);
+                cell.SetBoundary(SharesPanelBoundaryEdge(cell.Polygon, panelPolygon, boundaryTolerance));
                 cellList[siteIndex] = cell;
             }
         }
