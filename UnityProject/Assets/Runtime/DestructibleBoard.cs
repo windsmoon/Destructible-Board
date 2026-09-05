@@ -626,6 +626,28 @@ namespace Windsmoon.DesctructibleBoard
             CreateFragmentObjects();
         }
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// Builds temporary editor meshes and material renderers from existing cells.
+        /// Does not resample cells or create colliders. ClearFragmentMeshes releases the preview.
+        /// </summary>
+        public void GeneratePreview()
+        {
+            if (Application.isPlaying)
+            {
+                Debug.LogError("Preview generation is only available in edit mode.");
+                return;
+            }
+            
+            GenerateFragmentMeshes();
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                _cellList[cellIndex].Mesh.hideFlags = HideFlags.DontSave;
+            }
+            CreateFragmentObjects(isPreview: true);
+        }
+#endif
+
         private void ValidateCellData()
         {
             if (_cellList == null || _cellList.Count == 0)
@@ -634,9 +656,12 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        private void CreateFragmentObjects()
+        private void CreateFragmentObjects(bool isPreview = false)
         {
-            GameObject fragmentRootObject = new GameObject("Fragments");
+            // Preview objects and their components must never be serialized into scenes or builds.
+            HideFlags objectFlags = isPreview ? HideFlags.DontSave : HideFlags.None;
+            GameObject fragmentRootObject = new GameObject(isPreview ? "Preview Fragments" : "Fragments");
+            fragmentRootObject.hideFlags = objectFlags;
             fragmentRootObject.layer = gameObject.layer;
             _root = fragmentRootObject.transform;
             _root.SetParent(transform, false);
@@ -645,23 +670,29 @@ namespace Windsmoon.DesctructibleBoard
             {
                 DestructibleCell cell = _cellList[cellIndex];
                 GameObject fragmentObject = new GameObject($"Fragment {cell.Id}");
+                fragmentObject.hideFlags = objectFlags;
                 fragmentObject.layer = gameObject.layer;
                 fragmentObject.transform.SetParent(_root, false);
 
                 MeshFilter meshFilter = fragmentObject.AddComponent<MeshFilter>();
+                meshFilter.hideFlags = objectFlags;
                 meshFilter.sharedMesh = cell.Mesh;
 
                 MeshRenderer meshRenderer = fragmentObject.AddComponent<MeshRenderer>();
+                meshRenderer.hideFlags = objectFlags;
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
-                MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
-                meshCollider.convex = true;
-                meshCollider.sharedMesh = cell.Mesh;
-                cell.Collider = meshCollider;
+                if (isPreview == false)
+                {
+                    MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
+                    meshCollider.convex = true;
+                    meshCollider.sharedMesh = cell.Mesh;
+                    cell.Collider = meshCollider;
+                    // Site indices and cell-list indices are aligned during generation.
+                    _cellIndexByCollider.Add(meshCollider, cellIndex);
+                }
                 _cellList[cellIndex] = cell;
-                // Site indices and cell-list indices are aligned during generation.
-                _cellIndexByCollider.Add(meshCollider, cellIndex);
             }
         }
 
