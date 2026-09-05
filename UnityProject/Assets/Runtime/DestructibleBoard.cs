@@ -128,11 +128,6 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region unity methods
-        private void Awake()
-        {
-            Generate();
-        }
-
         private void OnDestroy()
         {
             ReleaseGameObjects();
@@ -183,6 +178,23 @@ namespace Windsmoon.DesctructibleBoard
 
             cell = default;
             return false;
+        }
+
+        /// <summary>
+        /// Configures a circular panel before runtime generation. This is useful for
+        /// samples and other procedurally assembled scenes that cannot serialize a
+        /// preconfigured component.
+        /// </summary>
+        public void ConfigureCircle(float radius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        {
+            _shape = Shape.Circle;
+            _radius = Mathf.Max(0.01f, radius);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _material = material;
         }
 
         /// <summary>
