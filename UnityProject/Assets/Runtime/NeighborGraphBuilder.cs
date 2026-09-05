@@ -64,7 +64,7 @@ namespace Windsmoon.DesctructibleBoard
         {
             DestructibleCell firstCell = cellList[firstCellIndex];
             DestructibleCell secondCell = cellList[secondCellIndex];
-            if (SharesPolygonEdge(firstCell.PolygonVertexList, secondCell.PolygonVertexList, positionTolerance) == false)
+            if (SharesPolygonEdge(firstCell.PolygonVertices, secondCell.PolygonVertices, positionTolerance) == false)
             {
                 return;
             }
@@ -75,22 +75,22 @@ namespace Windsmoon.DesctructibleBoard
             secondCell.MutableNeighborIdList.Add(firstCell.Id);
         }
 
-        private static bool SharesPolygonEdge(IReadOnlyList<Vector2> firstPolygon, IReadOnlyList<Vector2> secondPolygon, float positionTolerance)
+        private static bool SharesPolygonEdge(IReadOnlyList<Vector2> firstPolygonVertices, IReadOnlyList<Vector2> secondPolygonVertices, float positionTolerance)
         {
-            if (firstPolygon.Count < 3 || secondPolygon.Count < 3)
+            if (firstPolygonVertices.Count < 3 || secondPolygonVertices.Count < 3)
             {
                 return false;
             }
 
             float positionToleranceSquared = positionTolerance * positionTolerance;
-            for (int firstEdgeIndex = 0; firstEdgeIndex < firstPolygon.Count; firstEdgeIndex++)
+            for (int firstEdgeIndex = 0; firstEdgeIndex < firstPolygonVertices.Count; firstEdgeIndex++)
             {
-                Vector2 firstStart = firstPolygon[firstEdgeIndex];
-                Vector2 firstEnd = firstPolygon[(firstEdgeIndex + 1) % firstPolygon.Count];
-                for (int secondEdgeIndex = 0; secondEdgeIndex < secondPolygon.Count; secondEdgeIndex++)
+                Vector2 firstStart = firstPolygonVertices[firstEdgeIndex];
+                Vector2 firstEnd = firstPolygonVertices[(firstEdgeIndex + 1) % firstPolygonVertices.Count];
+                for (int secondEdgeIndex = 0; secondEdgeIndex < secondPolygonVertices.Count; secondEdgeIndex++)
                 {
-                    Vector2 secondStart = secondPolygon[secondEdgeIndex];
-                    Vector2 secondEnd = secondPolygon[(secondEdgeIndex + 1) % secondPolygon.Count];
+                    Vector2 secondStart = secondPolygonVertices[secondEdgeIndex];
+                    Vector2 secondEnd = secondPolygonVertices[(secondEdgeIndex + 1) % secondPolygonVertices.Count];
                     bool sameDirection =
                         (firstStart - secondStart).sqrMagnitude <= positionToleranceSquared &&
                         (firstEnd - secondEnd).sqrMagnitude <= positionToleranceSquared;

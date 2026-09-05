@@ -59,7 +59,7 @@ namespace Windsmoon.DesctructibleBoard
         private List<DestructibleCell> _cellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
-        private readonly List<Vector2> _panelPolygon = new List<Vector2>(64);
+        private readonly List<Vector2> _panelPolygonVertices = new List<Vector2>(64);
         private readonly Dictionary<Collider, int> _cellIndexByCollider = new Dictionary<Collider, int>();
         private List<int> _currentSearchLayer = new List<int>();
         private List<int> _nextSearchLayer = new List<int>();
@@ -115,8 +115,8 @@ namespace Windsmoon.DesctructibleBoard
                 int regionCount = 0;
                 for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
                 {
-                    IReadOnlyList<Vector2> polygon = _cellList[cellIndex].PolygonVertexList;
-                    if (polygon.Count >= 3)
+                    IReadOnlyList<Vector2> polygonVertices = _cellList[cellIndex].PolygonVertices;
+                    if (polygonVertices.Count >= 3)
                     {
                         regionCount++;
                     }
@@ -501,10 +501,10 @@ namespace Windsmoon.DesctructibleBoard
             _delaunayTriangleList.Clear();
 
             // Sampling, clipping and preview all use the same local-space outline.
-            _panelPolygon.Clear();
+            _panelPolygonVertices.Clear();
             for (int vertexIndex = 0; vertexIndex < PanelVertexCount; vertexIndex++)
             {
-                _panelPolygon.Add(GetPanelVertex(vertexIndex));
+                _panelPolygonVertices.Add(GetPanelVertex(vertexIndex));
             }
             
             GenerateSamplePoints();
@@ -524,7 +524,7 @@ namespace Windsmoon.DesctructibleBoard
         
         private void GenerateSamplePoints()
         {
-            PoissonDiskSampler.Generate(PanelSize, _panelPolygon, _fragmentSize, _seed, _maxFragmentCount, _siteList);
+            PoissonDiskSampler.Generate(PanelSize, _panelPolygonVertices, _fragmentSize, _seed, _maxFragmentCount, _siteList);
 
             foreach (Vector2 site in _siteList)
             {
@@ -562,7 +562,7 @@ namespace Windsmoon.DesctructibleBoard
 
         private void GenerateVoronoiCells()
         {
-            VoronoiGenerator.Generate(_panelPolygon, _siteList, _delaunayTriangleList, _cellList);
+            VoronoiGenerator.Generate(_panelPolygonVertices, _siteList, _delaunayTriangleList, _cellList);
         }
 
         private void GenerateNeighborGraph()
@@ -577,11 +577,11 @@ namespace Windsmoon.DesctructibleBoard
 
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
-                IReadOnlyList<Vector2> polygon = _cellList[cellIndex].PolygonVertexList;
+                IReadOnlyList<Vector2> polygonVertices = _cellList[cellIndex].PolygonVertices;
                 // Use the generator's topology formulas without allocating vertex
                 // arrays, triangle indices, or a Unity Mesh object.
-                _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(polygon.Count);
-                _fragmentTriangleCount += FragmentMeshGenerator.CalculateTriangleCount(polygon.Count);
+                _fragmentVertexCount += FragmentMeshGenerator.CalculateVertexCount(polygonVertices.Count);
+                _fragmentTriangleCount += FragmentMeshGenerator.CalculateTriangleCount(polygonVertices.Count);
             }
         }
 
@@ -590,7 +590,7 @@ namespace Windsmoon.DesctructibleBoard
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
                 DestructibleCell cell = _cellList[cellIndex];
-                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertexList, _thickness);
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
                 cell.Mesh.name = $"Fragment Mesh {cell.Id}";
                 _cellList[cellIndex] = cell;
             }
@@ -829,16 +829,16 @@ namespace Windsmoon.DesctructibleBoard
         {
             foreach (DestructibleCell cell in _cellList)
             {
-                if (cell.PolygonVertexList == null || cell.PolygonVertexList.Count < 2)
+                if (cell.PolygonVertices == null || cell.PolygonVertices.Count < 2)
                 {
                     continue;
                 }
 
                 Gizmos.color = cell.IsBoundary ? Color.magenta : Color.green;
-                for (int pointIndex = 0; pointIndex < cell.PolygonVertexList.Count; pointIndex++)
+                for (int pointIndex = 0; pointIndex < cell.PolygonVertices.Count; pointIndex++)
                 {
-                    Vector2 current = cell.PolygonVertexList[pointIndex];
-                    Vector2 next = cell.PolygonVertexList[(pointIndex + 1) % cell.PolygonVertexList.Count];
+                    Vector2 current = cell.PolygonVertices[pointIndex];
+                    Vector2 next = cell.PolygonVertices[(pointIndex + 1) % cell.PolygonVertices.Count];
                     Gizmos.DrawLine(new Vector3(current.x, current.y, 0f), new Vector3(next.x, next.y, 0f));
                 }
             } 

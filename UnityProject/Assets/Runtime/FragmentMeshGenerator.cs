@@ -10,14 +10,14 @@ namespace Windsmoon.DesctructibleBoard
         /// Extrudes a counter-clockwise convex polygon in panel-local XY space
         /// into a closed mesh whose thickness extends equally along local Z.
         /// </summary>
-        internal static Mesh Generate(IReadOnlyList<Vector2> polygon, float thickness)
+        internal static Mesh Generate(IReadOnlyList<Vector2> polygonVertices, float thickness)
         {
-            if (polygon.Count < 3 || thickness <= 0f)
+            if (polygonVertices.Count < 3 || thickness <= 0f)
             {
                 return null;
             }
 
-            int polygonVertexCount = polygon.Count;
+            int polygonVertexCount = polygonVertices.Count;
             int vertexCount = CalculateVertexCount(polygonVertexCount);
             int triangleIndexCount = CalculateTriangleCount(polygonVertexCount) * 3;
             Vector3[] vertices = new Vector3[vertexCount];
@@ -26,9 +26,9 @@ namespace Windsmoon.DesctructibleBoard
             int[] triangles = new int[triangleIndexCount];
             float halfThickness = thickness * 0.5f;
 
-            WriteFrontAndBackVertices(polygon, halfThickness, vertices, normals, uv);
+            WriteFrontAndBackVertices(polygonVertices, halfThickness, vertices, normals, uv);
             WriteFrontAndBackTriangles(polygonVertexCount, triangles, out int triangleIndex);
-            WriteSideGeometry(polygon, halfThickness, vertices, normals, uv, triangles, ref triangleIndex);
+            WriteSideGeometry(polygonVertices, halfThickness, vertices, normals, uv, triangles, ref triangleIndex);
 
             Mesh mesh = new Mesh
             {
@@ -56,12 +56,12 @@ namespace Windsmoon.DesctructibleBoard
             return polygonVertexCount < 3 ? 0 : polygonVertexCount * 4 - 4;
         }
 
-        private static void WriteFrontAndBackVertices(IReadOnlyList<Vector2> polygon, float halfThickness, Vector3[] vertices, Vector3[] normals, Vector2[] uv)
+        private static void WriteFrontAndBackVertices(IReadOnlyList<Vector2> polygonVertices, float halfThickness, Vector3[] vertices, Vector3[] normals, Vector2[] uv)
         {
-            int polygonVertexCount = polygon.Count;
+            int polygonVertexCount = polygonVertices.Count;
             for (int pointIndex = 0; pointIndex < polygonVertexCount; pointIndex++)
             {
-                Vector2 point = polygon[pointIndex];
+                Vector2 point = polygonVertices[pointIndex];
                 int frontVertexIndex = pointIndex;
                 int backVertexIndex = polygonVertexCount + pointIndex;
 
@@ -103,9 +103,9 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        private static void WriteSideGeometry(IReadOnlyList<Vector2> polygon, float halfThickness, Vector3[] vertices, Vector3[] normals, Vector2[] uv, int[] triangles, ref int triangleIndex)
+        private static void WriteSideGeometry(IReadOnlyList<Vector2> polygonVertices, float halfThickness, Vector3[] vertices, Vector3[] normals, Vector2[] uv, int[] triangles, ref int triangleIndex)
         {
-            int polygonVertexCount = polygon.Count;
+            int polygonVertexCount = polygonVertices.Count;
          
             // 0 ～ n-1  front vertices
             // n ～ 2n-1 back vertices
@@ -114,9 +114,9 @@ namespace Windsmoon.DesctructibleBoard
 
             for (int pointIndex = 0; pointIndex < polygonVertexCount; pointIndex++)
             {
-                Vector2 current = polygon[pointIndex];
+                Vector2 current = polygonVertices[pointIndex];
                 // The last edge will connected to the first vertex by the %
-                Vector2 next = polygon[(pointIndex + 1) % polygonVertexCount];
+                Vector2 next = polygonVertices[(pointIndex + 1) % polygonVertexCount];
                 Vector2 edge = next - current;
                 float nextStripU = stripU + edge.magnitude;
                 Vector3 sideNormal = new Vector3(edge.y, -edge.x, 0f).normalized;

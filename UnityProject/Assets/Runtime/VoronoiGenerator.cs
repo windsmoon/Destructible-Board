@@ -13,13 +13,13 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
-        internal static void Generate(IReadOnlyList<Vector2> panelPolygon, IReadOnlyList<Vector2> siteList, IReadOnlyList<DelaunayTriangle> triangleList, List<DestructibleCell> cellList)
+        internal static void Generate(IReadOnlyList<Vector2> panelPolygonVertices, IReadOnlyList<Vector2> siteList, IReadOnlyList<DelaunayTriangle> triangleList, List<DestructibleCell> cellList)
         {
             List<int> neighborList = new List<int>();
-            List<Vector2> currentPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
-            List<Vector2> clippedPolygon = new List<Vector2>(Mathf.Max(8, panelPolygon.Count));
+            List<Vector2> currentVertices = new List<Vector2>(Mathf.Max(8, panelPolygonVertices.Count));
+            List<Vector2> clippedVertices = new List<Vector2>(Mathf.Max(8, panelPolygonVertices.Count));
 
-            float boundaryTolerance = CalculateBoundaryTolerance(panelPolygon);
+            float boundaryTolerance = CalculateBoundaryTolerance(panelPolygonVertices);
 
             for (int siteIndex = 0; siteIndex < siteList.Count; siteIndex++)
             {
@@ -40,42 +40,42 @@ namespace Windsmoon.DesctructibleBoard
                     }
                 }
 
-                currentPolygon.Clear();
-                for (int vertexIndex = 0; vertexIndex < panelPolygon.Count; vertexIndex++)
+                currentVertices.Clear();
+                for (int vertexIndex = 0; vertexIndex < panelPolygonVertices.Count; vertexIndex++)
                 {
-                    currentPolygon.Add(panelPolygon[vertexIndex]);
+                    currentVertices.Add(panelPolygonVertices[vertexIndex]);
                 }
                 foreach (var neighborSiteIndex in neighborList)
                 {
-                    ClipToCloserHalfPlane(currentPolygon, clippedPolygon, siteList[siteIndex], siteList[neighborSiteIndex]);
-                    (currentPolygon, clippedPolygon) = (clippedPolygon, currentPolygon);
+                    ClipToCloserHalfPlane(currentVertices, clippedVertices, siteList[siteIndex], siteList[neighborSiteIndex]);
+                    (currentVertices, clippedVertices) = (clippedVertices, currentVertices);
 
-                    if (currentPolygon.Count == 0)
+                    if (currentVertices.Count == 0)
                     {
                         break;
                     }
                 }
 
                 DestructibleCell cell = cellList[siteIndex];
-                CopyCleanCounterClockwisePolygon(currentPolygon, cell.MutablePolygonVertexList);
-                cell.SetBoundary(SharesPanelBoundaryEdge(cell.PolygonVertexList, panelPolygon, boundaryTolerance));
+                CopyCleanCounterClockwisePolygon(currentVertices, cell.MutablePolygonVertices);
+                cell.SetBoundary(SharesPanelBoundaryEdge(cell.PolygonVertices, panelPolygonVertices, boundaryTolerance));
                 cellList[siteIndex] = cell;
             }
         }
 
-        private static float CalculateBoundaryTolerance(IReadOnlyList<Vector2> panelPolygon)
+        private static float CalculateBoundaryTolerance(IReadOnlyList<Vector2> panelPolygonVertices)
         {
-            if (panelPolygon.Count == 0)
+            if (panelPolygonVertices.Count == 0)
             {
                 return MinBoundaryTolerance;
             }
 
-            Vector2 minimum = panelPolygon[0];
-            Vector2 maximum = panelPolygon[0];
-            for (int vertexIndex = 1; vertexIndex < panelPolygon.Count; vertexIndex++)
+            Vector2 minimum = panelPolygonVertices[0];
+            Vector2 maximum = panelPolygonVertices[0];
+            for (int vertexIndex = 1; vertexIndex < panelPolygonVertices.Count; vertexIndex++)
             {
-                minimum = Vector2.Min(minimum, panelPolygon[vertexIndex]);
-                maximum = Vector2.Max(maximum, panelPolygon[vertexIndex]);
+                minimum = Vector2.Min(minimum, panelPolygonVertices[vertexIndex]);
+                maximum = Vector2.Max(maximum, panelPolygonVertices[vertexIndex]);
             }
 
             Vector2 size = maximum - minimum;
@@ -87,17 +87,17 @@ namespace Windsmoon.DesctructibleBoard
         /// Voronoi regions can reach the outline even when their sites are not
         /// on the sample convex hull. A point contact alone is not a boundary edge.
         /// </summary>
-        private static bool SharesPanelBoundaryEdge(IReadOnlyList<Vector2> polygon, IReadOnlyList<Vector2> panelPolygon, float tolerance)
+        private static bool SharesPanelBoundaryEdge(IReadOnlyList<Vector2> polygonVertices, IReadOnlyList<Vector2> panelPolygonVertices, float tolerance)
         {
-            if (polygon.Count < 3 || panelPolygon.Count < 3)
+            if (polygonVertices.Count < 3 || panelPolygonVertices.Count < 3)
             {
                 return false;
             }
 
-            for (int panelEdgeIndex = 0; panelEdgeIndex < panelPolygon.Count; panelEdgeIndex++)
+            for (int panelEdgeIndex = 0; panelEdgeIndex < panelPolygonVertices.Count; panelEdgeIndex++)
             {
-                Vector2 panelStart = panelPolygon[panelEdgeIndex];
-                Vector2 panelEdge = panelPolygon[(panelEdgeIndex + 1) % panelPolygon.Count] - panelStart;
+                Vector2 panelStart = panelPolygonVertices[panelEdgeIndex];
+                Vector2 panelEdge = panelPolygonVertices[(panelEdgeIndex + 1) % panelPolygonVertices.Count] - panelStart;
                 float panelEdgeLength = panelEdge.magnitude;
                 if (panelEdgeLength <= tolerance)
                 {
@@ -107,10 +107,10 @@ namespace Windsmoon.DesctructibleBoard
                 // Unit direction makes the cross products distances in panel-local
                 // units, so the same tolerance works for long and short outline edges.
                 Vector2 direction = panelEdge / panelEdgeLength;
-                for (int cellEdgeIndex = 0; cellEdgeIndex < polygon.Count; cellEdgeIndex++)
+                for (int cellEdgeIndex = 0; cellEdgeIndex < polygonVertices.Count; cellEdgeIndex++)
                 {
-                    Vector2 startOffset = polygon[cellEdgeIndex] - panelStart;
-                    Vector2 endOffset = polygon[(cellEdgeIndex + 1) % polygon.Count] - panelStart;
+                    Vector2 startOffset = polygonVertices[cellEdgeIndex] - panelStart;
+                    Vector2 endOffset = polygonVertices[(cellEdgeIndex + 1) % polygonVertices.Count] - panelStart;
                     float startDistance = direction.x * startOffset.y - direction.y * startOffset.x;
                     float endDistance = direction.x * endOffset.y - direction.y * endOffset.x;
                     if (Mathf.Abs(startDistance) > tolerance || Mathf.Abs(endDistance) > tolerance)
@@ -170,10 +170,10 @@ namespace Windsmoon.DesctructibleBoard
             valueList.Add(value);
         }
 
-        private static void ClipToCloserHalfPlane(IReadOnlyList<Vector2> inputPolygon, List<Vector2> outputPolygon, Vector2 site, Vector2 neighborSite)
+        private static void ClipToCloserHalfPlane(IReadOnlyList<Vector2> inputVertices, List<Vector2> outputVertices, Vector2 site, Vector2 neighborSite)
         {
-            outputPolygon.Clear();
-            if (inputPolygon.Count == 0)
+            outputVertices.Clear();
+            if (inputVertices.Count == 0)
             {
                 return;
             }
@@ -181,22 +181,22 @@ namespace Windsmoon.DesctructibleBoard
             Vector2 planeNormal = neighborSite - site;
             if (planeNormal.sqrMagnitude <= DuplicatePointEpsilonSquared)
             {
-                for (int pointIndex = 0; pointIndex < inputPolygon.Count; pointIndex++)
+                for (int pointIndex = 0; pointIndex < inputVertices.Count; pointIndex++)
                 {
-                    outputPolygon.Add(inputPolygon[pointIndex]);
+                    outputVertices.Add(inputVertices[pointIndex]);
                 }
 
                 return;
             }
 
             float planeOffset = (neighborSite.sqrMagnitude - site.sqrMagnitude) * 0.5f;
-            Vector2 previousPoint = inputPolygon[^1];
+            Vector2 previousPoint = inputVertices[^1];
             float previousDistance = Vector2.Dot(previousPoint, planeNormal) - planeOffset;
             bool previousInside = previousDistance <= InsideEpsilon;
 
-            for (int pointIndex = 0; pointIndex < inputPolygon.Count; pointIndex++)
+            for (int pointIndex = 0; pointIndex < inputVertices.Count; pointIndex++)
             {
-                Vector2 currentPoint = inputPolygon[pointIndex];
+                Vector2 currentPoint = inputVertices[pointIndex];
                 float currentDistance = Vector2.Dot(currentPoint, planeNormal) - planeOffset;
                 bool currentInside = currentDistance <= InsideEpsilon;
 
@@ -206,13 +206,13 @@ namespace Windsmoon.DesctructibleBoard
                     if (Mathf.Abs(denominator) > Mathf.Epsilon)
                     {
                         float interpolation = previousDistance / denominator;
-                        outputPolygon.Add(Vector2.LerpUnclamped(previousPoint, currentPoint, interpolation));
+                        outputVertices.Add(Vector2.LerpUnclamped(previousPoint, currentPoint, interpolation));
                     }
                 }
 
                 if (currentInside)
                 {
-                    outputPolygon.Add(currentPoint);
+                    outputVertices.Add(currentPoint);
                 }
 
                 previousPoint = currentPoint;
@@ -221,39 +221,39 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        private static void CopyCleanCounterClockwisePolygon(IReadOnlyList<Vector2> sourcePolygon, List<Vector2> destinationPolygon)
+        private static void CopyCleanCounterClockwisePolygon(IReadOnlyList<Vector2> sourceVertices, List<Vector2> destinationVertices)
         {
-            destinationPolygon.Clear();
+            destinationVertices.Clear();
 
-            for (int pointIndex = 0; pointIndex < sourcePolygon.Count; pointIndex++)
+            for (int pointIndex = 0; pointIndex < sourceVertices.Count; pointIndex++)
             {
-                Vector2 point = sourcePolygon[pointIndex];
-                if (destinationPolygon.Count == 0 ||
-                    (destinationPolygon[^1] - point).sqrMagnitude > DuplicatePointEpsilonSquared)
+                Vector2 point = sourceVertices[pointIndex];
+                if (destinationVertices.Count == 0 ||
+                    (destinationVertices[^1] - point).sqrMagnitude > DuplicatePointEpsilonSquared)
                 {
-                    destinationPolygon.Add(point);
+                    destinationVertices.Add(point);
                 }
             }
 
-            if (destinationPolygon.Count > 1 &&
-                (destinationPolygon[0] - destinationPolygon[^1]).sqrMagnitude <= DuplicatePointEpsilonSquared)
+            if (destinationVertices.Count > 1 &&
+                (destinationVertices[0] - destinationVertices[^1]).sqrMagnitude <= DuplicatePointEpsilonSquared)
             {
-                destinationPolygon.RemoveAt(destinationPolygon.Count - 1);
+                destinationVertices.RemoveAt(destinationVertices.Count - 1);
             }
 
-            if (CalculateSignedAreaTwice(destinationPolygon) < 0d)
+            if (CalculateSignedAreaTwice(destinationVertices) < 0d)
             {
-                destinationPolygon.Reverse();
+                destinationVertices.Reverse();
             }
         }
 
-        private static double CalculateSignedAreaTwice(IReadOnlyList<Vector2> polygon)
+        private static double CalculateSignedAreaTwice(IReadOnlyList<Vector2> polygonVertices)
         {
             double areaTwice = 0d;
-            for (int pointIndex = 0; pointIndex < polygon.Count; pointIndex++)
+            for (int pointIndex = 0; pointIndex < polygonVertices.Count; pointIndex++)
             {
-                Vector2 current = polygon[pointIndex];
-                Vector2 next = polygon[(pointIndex + 1) % polygon.Count];
+                Vector2 current = polygonVertices[pointIndex];
+                Vector2 next = polygonVertices[(pointIndex + 1) % polygonVertices.Count];
                 areaTwice += (double)current.x * next.y - (double)current.y * next.x;
             }
 

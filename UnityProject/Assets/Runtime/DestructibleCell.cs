@@ -15,13 +15,13 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private Vector2 _site;
         [SerializeField]
-        private List<Vector2> _polygonVertexList;
+        private List<Vector2> _polygonVertices;
         [SerializeField]
         private List<int> _neighborIdList;
         [SerializeField]
         private bool _isBoundary;
         [NonSerialized]
-        private ReadOnlyCollection<Vector2> _polygonVertexView;
+        private ReadOnlyCollection<Vector2> _polygonVerticesView;
         [NonSerialized]
         private ReadOnlyCollection<int> _neighborIdView;
 
@@ -41,9 +41,9 @@ namespace Windsmoon.DesctructibleBoard
         {
             _id = id;
             _site = site;
-            _polygonVertexList = new List<Vector2>();
+            _polygonVertices = new List<Vector2>();
             _neighborIdList = new List<int>();
-            _polygonVertexView = _polygonVertexList.AsReadOnly();
+            _polygonVerticesView = _polygonVertices.AsReadOnly();
             _neighborIdView = _neighborIdList.AsReadOnly();
         }
         #endregion
@@ -52,11 +52,11 @@ namespace Windsmoon.DesctructibleBoard
         public int Id => _id;
         public Vector2 Site => _site;
         // Prepared views avoid lazy initialization on struct copies and mutable-list casts.
-        public IReadOnlyList<Vector2> PolygonVertexList => _polygonVertexView;
+        public IReadOnlyList<Vector2> PolygonVertices => _polygonVerticesView;
         public IReadOnlyList<int> NeighborIdList => _neighborIdView;
         public bool IsBoundary => _isBoundary;
         // Geometry builders populate these lists before the layout is used by instances.
-        internal List<Vector2> MutablePolygonVertexList => _polygonVertexList;
+        internal List<Vector2> MutablePolygonVertices => _polygonVertices;
         internal List<int> MutableNeighborIdList => _neighborIdList;
         #endregion
 
@@ -72,9 +72,9 @@ namespace Windsmoon.DesctructibleBoard
 
         public void OnAfterDeserialize()
         {
-            _polygonVertexList ??= new List<Vector2>();
+            _polygonVertices ??= new List<Vector2>();
             _neighborIdList ??= new List<int>();
-            _polygonVertexView = _polygonVertexList.AsReadOnly();
+            _polygonVerticesView = _polygonVertices.AsReadOnly();
             _neighborIdView = _neighborIdList.AsReadOnly();
         }
         #endregion
