@@ -676,6 +676,7 @@ namespace Windsmoon.DesctructibleBoard
                     }
                     cell.GameObject = null;
                     cell.Collider = null;
+                    cell.Destroyed = false;
                     _cellList[cellIndex] = cell;
                 }
             }
