@@ -83,10 +83,23 @@ namespace Windsmoon.DesctructibleBoard.Editor
 
             DestructibleBoard board = (DestructibleBoard)target;
             EditorGUILayout.Space();
-            if (GUILayout.Button("Generate"))
+            string generationButtonLabel = Application.isPlaying ? "Generate" : board.BakeMode == BakeMode.NoBake ? "Show Preview" : "Bake";
+            if (GUILayout.Button(generationButtonLabel))
             {
                 board.GenerateAll();
                 if (!Application.isPlaying)
+                {
+                    EditorUtility.SetDirty(board);
+                }
+
+                SceneView.RepaintAll();
+            }
+
+            string clearButtonLabel = Application.isPlaying ? "Clear" : "Clear Bake";
+            if (GUILayout.Button(clearButtonLabel))
+            {
+                board.ClearGeneratedData();
+                if (Application.isPlaying == false)
                 {
                     EditorUtility.SetDirty(board);
                 }
