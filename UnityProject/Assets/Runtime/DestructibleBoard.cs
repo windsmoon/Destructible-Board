@@ -150,7 +150,7 @@ namespace Windsmoon.DesctructibleBoard
         #region unity methods
         private void OnDestroy()
         {
-            ClearFragmentMeshes();
+            Clear();
         }
 
         private void OnDrawGizmos()
@@ -751,10 +751,12 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        /// <summary> Clears generated meshes and their consumers, preserving cell topology.</summary>
+        /// <summary>
+        /// Clears generated meshes while preserving cell topology.
+        /// Fragment objects must be cleared before calling this method.
+        /// </summary>
         public void ClearFragmentMeshes()
         {
-            ClearFragmentObjects();
             if (_cellList == null)
             {
                 return;
@@ -785,6 +787,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary>Clears topology, derived resources, generation statistics and search caches.</summary>
         public void Clear()
         {
+            ClearFragmentObjects();
             ClearFragmentMeshes();
             _cellList?.Clear();
             _siteList?.Clear();
