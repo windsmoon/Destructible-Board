@@ -525,13 +525,13 @@ namespace Windsmoon.DesctructibleBoard
         public void GenerateFromCellData()
         {
             GenerateFragmentMeshes();
-            CreateFragments();
+            GenerateFragmentObjects();
         }
 
         /// <summary> Replaces cell topology and clears all resources derived from the old layout.</summary>
         public void GenerateCellData()
         {
-            ClearGeneratedData();
+            Clear();
             _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
             _siteList ??= new List<Vector2>(_maxFragmentCount);
             _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
@@ -576,7 +576,7 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary> Recreates intact runtime fragments, or temporary edit-mode preview fragments, from existing meshes and cell data.</summary>
-        public void CreateFragments()
+        public void GenerateFragmentObjects()
         {
             ValidateCellData();
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
@@ -586,7 +586,7 @@ namespace Windsmoon.DesctructibleBoard
                     throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
                 }
             }
-            ClearRuntimeFragments();
+            ClearFragmentObjects();
             CreateFragmentObjects();
         }
 
@@ -703,7 +703,7 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary> Clears instance objects and damage state, preserving topology and meshes.</summary>
-        public void ClearRuntimeFragments()
+        public void ClearFragmentObjects()
         {
             // Invalidate old lookups before deferred GameObject destruction.
             _cellIndexByCollider.Clear();
@@ -754,7 +754,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary> Clears generated meshes and their consumers, preserving cell topology.</summary>
         public void ClearFragmentMeshes()
         {
-            ClearRuntimeFragments();
+            ClearFragmentObjects();
             if (_cellList == null)
             {
                 return;
@@ -783,7 +783,7 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary>Clears topology, derived resources, generation statistics and search caches.</summary>
-        public void ClearGeneratedData()
+        public void Clear()
         {
             ClearFragmentMeshes();
             _cellList?.Clear();

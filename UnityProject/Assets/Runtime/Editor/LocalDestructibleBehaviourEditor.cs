@@ -98,7 +98,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
             string clearButtonLabel = Application.isPlaying ? "Clear" : "Clear Bake";
             if (GUILayout.Button(clearButtonLabel))
             {
-                board.ClearGeneratedData();
+                board.Clear();
                 if (Application.isPlaying == false)
                 {
                     EditorUtility.SetDirty(board);
