@@ -57,6 +57,7 @@ namespace Windsmoon.DesctructibleBoard
 
         [SerializeField, Tooltip("Generated cell data. Replaced when Generate is called.")]
         private List<DestructibleCell> _cellList;
+        private List<DestructibleCell> _previewCellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
         private readonly List<Vector2> _panelPolygonVertices = new List<Vector2>(64);
@@ -68,6 +69,7 @@ namespace Windsmoon.DesctructibleBoard
         private int _fragmentVertexCount;
         private int _fragmentTriangleCount;
         private Transform _root;
+        private Transform _previewRoot;
         #endregion
 
         #region properties
@@ -131,6 +133,7 @@ namespace Windsmoon.DesctructibleBoard
         private void OnDestroy()
         {
             ClearFragmentMeshes();
+            ClearPreviewFragments();
         }
 
         private void OnDrawGizmos()
@@ -628,8 +631,9 @@ namespace Windsmoon.DesctructibleBoard
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Builds temporary editor meshes and material renderers from existing cells.
-        /// Does not resample cells or create colliders. ClearFragmentMeshes releases the preview.
+        /// Builds temporary editor meshes and renderers from existing cells into a
+        /// dedicated preview cell collection, leaving baked cell data untouched.
+        /// Does not resample cells or create colliders. ClearPreviewFragments releases the preview.
         /// </summary>
         public void GeneratePreview()
         {
@@ -638,13 +642,27 @@ namespace Windsmoon.DesctructibleBoard
                 Debug.LogError("Preview generation is only available in edit mode.");
                 return;
             }
-            
-            GenerateFragmentMeshes();
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
-            {
-                _cellList[cellIndex].Mesh.hideFlags = HideFlags.DontSave;
-            }
+
+            ClearPreviewFragments();
+            ValidateCellData();
+            _previewCellList ??= new List<DestructibleCell>(_cellList.Count);
+            _previewCellList.Clear();
+            _previewCellList.AddRange(_cellList);
+            GeneratePreviewMeshes();
             CreateFragmentObjects(isPreview: true);
+        }
+
+        /// <summary>Builds temporary preview meshes from the copied preview cells.</summary>
+        private void GeneratePreviewMeshes()
+        {
+            for (int cellIndex = 0; cellIndex < _previewCellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _previewCellList[cellIndex];
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
+                cell.Mesh.hideFlags = HideFlags.DontSave;
+                cell.Mesh.name = $"Preview Fragment Mesh {cell.Id}";
+                _previewCellList[cellIndex] = cell;
+            }
         }
 #endif
 
@@ -658,21 +676,31 @@ namespace Windsmoon.DesctructibleBoard
 
         private void CreateFragmentObjects(bool isPreview = false)
         {
+            List<DestructibleCell> cellList = isPreview ? _previewCellList : _cellList;
+
             // Preview objects and their components must never be serialized into scenes or builds.
             HideFlags objectFlags = isPreview ? HideFlags.DontSave : HideFlags.None;
             GameObject fragmentRootObject = new GameObject(isPreview ? "Preview Fragments" : "Fragments");
             fragmentRootObject.hideFlags = objectFlags;
             fragmentRootObject.layer = gameObject.layer;
-            _root = fragmentRootObject.transform;
-            _root.SetParent(transform, false);
-
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            Transform root = fragmentRootObject.transform;
+            root.SetParent(transform, false);
+            if (isPreview)
             {
-                DestructibleCell cell = _cellList[cellIndex];
+                _previewRoot = root;
+            }
+            else
+            {
+                _root = root;
+            }
+
+            for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = cellList[cellIndex];
                 GameObject fragmentObject = new GameObject($"Fragment {cell.Id}");
                 fragmentObject.hideFlags = objectFlags;
                 fragmentObject.layer = gameObject.layer;
-                fragmentObject.transform.SetParent(_root, false);
+                fragmentObject.transform.SetParent(root, false);
 
                 MeshFilter meshFilter = fragmentObject.AddComponent<MeshFilter>();
                 meshFilter.hideFlags = objectFlags;
@@ -692,7 +720,7 @@ namespace Windsmoon.DesctructibleBoard
                     // Site indices and cell-list indices are aligned during generation.
                     _cellIndexByCollider.Add(meshCollider, cellIndex);
                 }
-                _cellList[cellIndex] = cell;
+                cellList[cellIndex] = cell;
             }
         }
 
@@ -728,6 +756,50 @@ namespace Windsmoon.DesctructibleBoard
             _root = null;
 
             DestroyFragmentObject(fragmentRootObject);
+        }
+
+        /// <summary>Clears temporary preview meshes and objects, preserving baked cell data.</summary>
+        private void ClearPreviewFragments()
+        {
+            if (_previewCellList != null)
+            {
+                for (int cellIndex = 0; cellIndex < _previewCellList.Count; cellIndex++)
+                {
+                    DestructibleCell cell = _previewCellList[cellIndex];
+                    if (cell.GameObject != null)
+                    {
+                        DestroyFragmentObject(cell.GameObject);
+                    }
+
+                    if (cell.Mesh != null)
+                    {
+                        if (Application.isPlaying)
+                        {
+                            Destroy(cell.Mesh);
+                        }
+                        else
+                        {
+                            DestroyImmediate(cell.Mesh);
+                        }
+                    }
+
+                    cell.GameObject = null;
+                    cell.Mesh = null;
+                    cell.Collider = null;
+                    _previewCellList[cellIndex] = cell;
+                }
+
+                _previewCellList.Clear();
+            }
+
+            if (_previewRoot == null)
+            {
+                return;
+            }
+
+            GameObject previewRootObject = _previewRoot.gameObject;
+            _previewRoot = null;
+            DestroyFragmentObject(previewRootObject);
         }
 
         private static void DestroyFragmentObject(GameObject fragmentObject)
@@ -780,6 +852,7 @@ namespace Windsmoon.DesctructibleBoard
         public void ClearGeneratedData()
         {
             ClearFragmentMeshes();
+            ClearPreviewFragments();
             _cellList?.Clear();
             _siteList?.Clear();
             _delaunayTriangleList?.Clear();
