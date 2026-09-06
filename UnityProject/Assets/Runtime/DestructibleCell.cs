@@ -20,14 +20,16 @@ namespace Windsmoon.DesctructibleBoard
         private List<int> _neighborIdList;
         [SerializeField]
         private bool _isBoundary;
+        [SerializeField]
+        private Mesh _mesh;
+        [SerializeField]
+        private GameObject _gameObject;
+        [SerializeField]
+        private Collider _collider;
         
         private ReadOnlyCollection<Vector2> _polygonVerticesView;
         private ReadOnlyCollection<int> _neighborIdView;
         private bool _isDestroyed;
-        
-        private Mesh _mesh;
-        private GameObject _gameObject;
-        private Collider _collider;
         #endregion
 
         #region constructors
