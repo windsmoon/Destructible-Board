@@ -458,12 +458,13 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool TryGetIslands(List<List<int>> islands)
         {
+            islands.Clear();
+            
             if (_cellList == null || _cellList.Count == 0)
             {
                 return false;
             }
 
-            islands.Clear();
             BeginCellSearch();
             for (int startCellId = 0; startCellId < _cellList.Count; startCellId++)
             {
