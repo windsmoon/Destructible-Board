@@ -9,7 +9,7 @@ namespace Windsmoon.DesctructibleBoard
         #region fields
         [Header("Panel")]
         [SerializeField]
-        private Mode _mode = Mode.PrepareData;
+        private BakeMode bakeMode = BakeMode.BakeData;
         [SerializeField]
         private Shape _shape = Shape.Rectangle;
         [SerializeField, Min(0.01f)] 
@@ -74,7 +74,7 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
-        public Mode Mode => _mode;
+        public BakeMode BakeMode => bakeMode;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
         public int FragmentVertexCount => _fragmentVertexCount;
@@ -136,11 +136,11 @@ namespace Windsmoon.DesctructibleBoard
         {
             get
             {
-                return Application.isPlaying ? HideFlags.None : _mode switch
+                return Application.isPlaying ? HideFlags.None : bakeMode switch
                     {
-                        Mode.Preview => HideFlags.HideAndDontSave,
-                        Mode.PrepareData => HideFlags.HideAndDontSave,
-                        Mode.Baked => HideFlags.HideAndDontSave,
+                        BakeMode.NoBake => HideFlags.HideAndDontSave,
+                        BakeMode.BakeData => HideFlags.HideAndDontSave,
+                        BakeMode.BakObject => HideFlags.HideAndDontSave,
                         _ => HideFlags.DontSave
                     };
             }
@@ -688,7 +688,7 @@ namespace Windsmoon.DesctructibleBoard
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
-                if (Application.isPlaying || _mode == Mode.Baked)
+                if (Application.isPlaying || bakeMode == BakeMode.BakObject)
                 {
                     MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
                     meshCollider.hideFlags = hideFlags;
