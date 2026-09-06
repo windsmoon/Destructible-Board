@@ -63,13 +63,15 @@ namespace Windsmoon.DesctructibleBoard
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
         private readonly List<Vector2> _panelPolygonVertices = new List<Vector2>(64);
-        private readonly Dictionary<Collider, int> _cellIndexByCollider = new Dictionary<Collider, int>();
+        [SerializeField, HideInInspector]
+        private ColliderCellIndexDictionary _cellIndexByCollider = new ColliderCellIndexDictionary();
         private List<int> _currentSearchLayer = new List<int>();
         private List<int> _nextSearchLayer = new List<int>();
         private int[] _searchVisitVersions = Array.Empty<int>();
         private int _searchVersion;
         private int _fragmentVertexCount;
         private int _fragmentTriangleCount;
+        [SerializeField, HideInInspector]
         private Transform _root;
         #endregion
 
@@ -458,6 +460,11 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool TryGetIslands(List<List<int>> islands)
         {
+            if (islands == null)
+            {
+                throw new ArgumentNullException(nameof(islands));
+            }
+
             islands.Clear();
             
             if (_cellList == null || _cellList.Count == 0)
