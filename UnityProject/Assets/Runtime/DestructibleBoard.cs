@@ -525,7 +525,7 @@ namespace Windsmoon.DesctructibleBoard
         public void GenerateFromCellData()
         {
             GenerateFragmentMeshes();
-            CreateRuntimeFragments();
+            CreateFragments();
         }
 
         /// <summary> Replaces cell topology and clears all resources derived from the old layout.</summary>
@@ -576,7 +576,7 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary> Recreates intact runtime fragments, or temporary edit-mode preview fragments, from existing meshes and cell data.</summary>
-        public void CreateRuntimeFragments()
+        public void CreateFragments()
         {
             ValidateCellData();
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
