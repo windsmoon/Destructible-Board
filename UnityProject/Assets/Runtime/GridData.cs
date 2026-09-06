@@ -19,9 +19,9 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private int _rowCount;
         [SerializeField]
-        private int[] _bucketOffsets;
+        private List<int> _bucketOffsetList;
         [SerializeField]
-        private int[] _cellIds;
+        private List<int> _cellIdList;
         #endregion
 
         #region properties
@@ -66,8 +66,8 @@ namespace Windsmoon.DesctructibleBoard
             _rowCount = Mathf.CeilToInt(boundsSize.y / _gridCellSize);
 
             int bucketCount = _columnCount * _rowCount;
-            _bucketOffsets = new int[bucketCount + 1];
-            _cellIds = Array.Empty<int>();
+            _bucketOffsetList = new List<int>(bucketCount + 1);
+            _cellIdList = new List<int>(bucketCount + 1);
         }
 
         public bool TryGetCellIndex(Vector2 position, out int index)
