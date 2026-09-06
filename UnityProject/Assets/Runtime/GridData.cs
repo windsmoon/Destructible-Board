@@ -33,15 +33,15 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
-        internal void Build(IReadOnlyList<DestructibleCell> cellList)
+        internal void Build(IReadOnlyList<DestructibleCell> destructibleCellList)
         {
             double totalArea = 0d;
             Vector2 minimum = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
             Vector2 maximum = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
 
-            for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+            for (int cellIndex = 0; cellIndex < destructibleCellList.Count; cellIndex++)
             {
-                IReadOnlyList<Vector2> polygonVertices = cellList[cellIndex].PolygonVertices;
+                IReadOnlyList<Vector2> polygonVertices = destructibleCellList[cellIndex].PolygonVertices;
                 // Shoelace area keeps the estimate based on the final clipped cells.
                 double twiceArea = 0d;
                 for (int vertexIndex = 0; vertexIndex < polygonVertices.Count; vertexIndex++)
@@ -58,7 +58,7 @@ namespace Windsmoon.DesctructibleBoard
 
             _minVertex = minimum;
             _maxVertex = maximum;
-            _gridCellSize = Mathf.Sqrt((float)(totalArea / cellList.Count));
+            _gridCellSize = Mathf.Sqrt((float)(totalArea / destructibleCellList.Count));
 
             // Use the actual clipped panel bounds so sparse outer sampling bounds do not create empty grid regions.
             Vector2 boundsSize = _maxVertex - _minVertex;
@@ -72,9 +72,9 @@ namespace Windsmoon.DesctructibleBoard
                 _bucketOffsetList.Add(0);
             }
 
-            for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+            for (int cellIndex = 0; cellIndex < destructibleCellList.Count; cellIndex++)
             {
-                CalculateBucketRange(cellList[cellIndex].PolygonVertices, out int minColumn, out int maxColumn, out int minRow, out int maxRow);
+                CalculateBucketRange(destructibleCellList[cellIndex].PolygonVertices, out int minColumn, out int maxColumn, out int minRow, out int maxRow);
 
                 for (int row = minRow; row <= maxRow; row++)
                 {
@@ -82,11 +82,13 @@ namespace Windsmoon.DesctructibleBoard
                     {
                         int bucketIndex = row * _columnCount + column;
                         // Counts start at index one so the prefix sum becomes bucket offsets.
+                        // now per element in list means the count of the bucket
                         _bucketOffsetList[bucketIndex + 1]++;
                     }
                 }
             }
 
+            // caculate the prefix sum
             for (int bucketIndex = 0; bucketIndex < bucketCount; bucketIndex++)
             {
                 _bucketOffsetList[bucketIndex + 1] += _bucketOffsetList[bucketIndex];
@@ -105,16 +107,18 @@ namespace Windsmoon.DesctructibleBoard
                 bucketWriteOffsets[bucketIndex] = _bucketOffsetList[bucketIndex];
             }
 
-            for (int cellIndex = 0; cellIndex < cellList.Count; cellIndex++)
+            for (int cellIndex = 0; cellIndex < destructibleCellList.Count; cellIndex++)
             {
-                CalculateBucketRange(cellList[cellIndex].PolygonVertices, out int minColumn, out int maxColumn, out int minRow, out int maxRow);
+                CalculateBucketRange(destructibleCellList[cellIndex].PolygonVertices, out int minColumn, out int maxColumn, out int minRow, out int maxRow);
 
                 for (int row = minRow; row <= maxRow; row++)
                 {
                     for (int column = minColumn; column <= maxColumn; column++)
                     {
                         int bucketIndex = row * _columnCount + column;
-                        _cellIdList[bucketWriteOffsets[bucketIndex]++] = cellList[cellIndex].Id;
+                        int writeOffset = bucketWriteOffsets[bucketIndex];
+                        _cellIdList[writeOffset] = destructibleCellList[cellIndex].Id;
+                        bucketWriteOffsets[bucketIndex] = writeOffset + 1;
                     }
                 }
             }
