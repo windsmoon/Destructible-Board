@@ -9,6 +9,8 @@ namespace Windsmoon.DesctructibleBoard
         #region fields
         [Header("Panel")]
         [SerializeField]
+        private Mode _mode = Mode.PrepareData;
+        [SerializeField]
         private Shape _shape = Shape.Rectangle;
         [SerializeField, Min(0.01f)] 
         private float _width = 10f;
@@ -47,6 +49,9 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private Material _material;
         
+        [SerializeField, Tooltip("Generated cell data. Replaced when Generate is called.")]
+        private List<DestructibleCell> _cellList;
+
         [Header("Debug")]
         [SerializeField]
         private bool _enableDebugMode = false;
@@ -54,9 +59,7 @@ namespace Windsmoon.DesctructibleBoard
         private bool _enableDelaunayDebug = false;
         [SerializeField]
         private bool _enableVoronoiDebug = false;
-
-        [SerializeField, Tooltip("Generated cell data. Replaced when Generate is called.")]
-        private List<DestructibleCell> _cellList;
+        
         private List<DestructibleCell> _previewCellList;
         private List<Vector2> _siteList;
         private List<DelaunayTriangle> _delaunayTriangleList;
@@ -69,37 +72,12 @@ namespace Windsmoon.DesctructibleBoard
         private int _fragmentVertexCount;
         private int _fragmentTriangleCount;
         private Transform _root;
+        [NonSerialized]
         private Transform _previewRoot;
         #endregion
 
         #region properties
-        private Vector2 PanelSize => _shape switch
-        {
-            Shape.Circle => Vector2.one * (_radius * 2f),
-            Shape.Ellipse => new Vector2(_ellipseHorizontalRadius * 2f, _ellipseVerticalRadius * 2f),
-            Shape.Capsule => new Vector2(_capsuleWidth, _capsuleHeight),
-            // Sector rotation can place its arc anywhere around the origin, so use
-            // the containing circle as the centered sampling bounds.
-            Shape.Sector => Vector2.one * (_sectorRadius * 2f),
-            // Rotation changes the exact AABB, so keep a stable centered bound.
-            Shape.RegularPolygon => Vector2.one * (_regularPolygonRadius * 2f),
-            _ => new Vector2(_width, _height),
-        };
-        private int CurvedSegmentCount => Mathf.Clamp(_circleSegments, 8, 64);
-        private int CapsuleHalfArcSegmentCount => Mathf.Max(2, CurvedSegmentCount / 2);
-        private int SectorArcSegmentCount => Mathf.Max(1, Mathf.CeilToInt(CurvedSegmentCount * (_sectorAngle / 360f)));
-        private int PanelVertexCount => _shape switch
-        {
-            Shape.Circle => CurvedSegmentCount,
-            Shape.Ellipse => CurvedSegmentCount,
-            // one semicircle has (CapsuleHalfArcSegmentCount + 1) vertices, Capsule has two semicircles 
-            Shape.Capsule => Mathf.Approximately(_capsuleWidth, _capsuleHeight) ? CurvedSegmentCount : (CapsuleHalfArcSegmentCount + 1) * 2,
-            // One center vertex plus both endpoints of the subdivided arc.
-            Shape.Sector => SectorArcSegmentCount + 2,
-            Shape.RegularPolygon => Mathf.Clamp(_regularPolygonEdgeCount, 3, 64),
-            _ => 4,
-        };
-        internal IReadOnlyList<DestructibleCell> CellList => _cellList;
+        public Mode Mode => _mode;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
         public int FragmentVertexCount => _fragmentVertexCount;
@@ -127,6 +105,36 @@ namespace Windsmoon.DesctructibleBoard
                 return regionCount;
             }
         }
+
+        internal IReadOnlyList<DestructibleCell> CellList => _cellList;
+        internal IReadOnlyList<DestructibleCell> PreviewCellList => _previewCellList;
+
+        private Vector2 PanelSize => _shape switch
+        {
+            Shape.Circle => Vector2.one * (_radius * 2f),
+            Shape.Ellipse => new Vector2(_ellipseHorizontalRadius * 2f, _ellipseVerticalRadius * 2f),
+            Shape.Capsule => new Vector2(_capsuleWidth, _capsuleHeight),
+            // Sector rotation can place its arc anywhere around the origin, so use
+            // the containing circle as the centered sampling bounds.
+            Shape.Sector => Vector2.one * (_sectorRadius * 2f),
+            // Rotation changes the exact AABB, so keep a stable centered bound.
+            Shape.RegularPolygon => Vector2.one * (_regularPolygonRadius * 2f),
+            _ => new Vector2(_width, _height),
+        };
+        private int CurvedSegmentCount => Mathf.Clamp(_circleSegments, 8, 64);
+        private int CapsuleHalfArcSegmentCount => Mathf.Max(2, CurvedSegmentCount / 2);
+        private int SectorArcSegmentCount => Mathf.Max(1, Mathf.CeilToInt(CurvedSegmentCount * (_sectorAngle / 360f)));
+        private int PanelVertexCount => _shape switch
+        {
+            Shape.Circle => CurvedSegmentCount,
+            Shape.Ellipse => CurvedSegmentCount,
+            // one semicircle has (CapsuleHalfArcSegmentCount + 1) vertices, Capsule has two semicircles
+            Shape.Capsule => Mathf.Approximately(_capsuleWidth, _capsuleHeight) ? CurvedSegmentCount : (CapsuleHalfArcSegmentCount + 1) * 2,
+            // One center vertex plus both endpoints of the subdivided arc.
+            Shape.Sector => SectorArcSegmentCount + 2,
+            Shape.RegularPolygon => Mathf.Clamp(_regularPolygonEdgeCount, 3, 64),
+            _ => 4,
+        };
         #endregion
 
         #region unity methods
@@ -406,7 +414,7 @@ namespace Windsmoon.DesctructibleBoard
 
             return results.Count;
         }
-        
+
         /// <summary>
         /// Finds a cell from a generated fragment collider, then collects its neighbor rings.
         /// </summary>
@@ -522,8 +530,94 @@ namespace Windsmoon.DesctructibleBoard
             GenerateNeighborGraph();
             CalculateFragmentMeshDebugInfo();
         }
-        
-        private void GenerateSamplePoints()
+
+        /// <summary>
+        /// Rebuilds meshes from existing cells and current thickness, without resampling.
+        /// Removes old fragment objects. Does not create renderers or colliders.
+        /// </summary>
+        public void GenerateFragmentMeshes()
+        {
+            ValidateCellData();
+            if (_thickness <= 0f)
+            {
+                throw new InvalidOperationException("Mesh generation requires a finite positive thickness.");
+            }
+
+            ClearFragmentMeshes();
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _cellList[cellIndex];
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
+                _cellList[cellIndex] = cell;
+                cell.Mesh.name = $"Fragment Mesh {cell.Id}";
+            }
+            CalculateFragmentMeshDebugInfo();
+        }
+
+        /// <summary>Recreates intact runtime fragments from existing meshes and cell data.</summary>
+        public void CreateRuntimeFragments()
+        {
+            if (Application.isPlaying == false)
+            {
+                throw new InvalidOperationException("Runtime fragments can only be created in play mode.");
+            }
+
+            ValidateCellData();
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                if (_cellList[cellIndex].Mesh == null)
+                {
+                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
+                }
+            }
+            ClearRuntimeFragments();
+            CreateFragmentObjects();
+        }
+
+        /// <summary>
+        /// Builds temporary editor meshes and renderers from existing cells into a
+        /// dedicated preview cell collection, leaving baked cell data untouched.
+        /// Does not resample cells or create colliders. ClearPreviewFragments releases the preview.
+        /// </summary>
+        internal void GeneratePreview()
+        {
+            if (Application.isPlaying)
+            {
+                Debug.LogError("Preview generation is only available in edit mode.");
+                return;
+            }
+
+            ClearPreviewFragments();
+            ValidateCellData(); // need validate _cellDataList
+            _previewCellList ??= new List<DestructibleCell>(_cellList.Count);
+            _previewCellList.Clear();
+            _previewCellList.AddRange(_cellList);
+            GeneratePreviewMeshes();
+            CreateFragmentObjects();
+        }
+
+        /// <summary>Builds temporary preview meshes from the copied preview cells.</summary>
+        private void GeneratePreviewMeshes()
+        {
+            for (int cellIndex = 0; cellIndex < _previewCellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _previewCellList[cellIndex];
+                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
+                cell.Mesh.hideFlags = HideFlags.DontSave;
+                cell.Mesh.name = $"Preview Fragment Mesh {cell.Id}";
+                _previewCellList[cellIndex] = cell;
+            }
+        }
+
+        private void ValidateCellData()
+        {
+            if (_cellList == null || _cellList.Count == 0)
+            {
+                throw new InvalidOperationException("Generate cell data before building meshes or runtime fragments.");
+            }
+        }
+
+                private void GenerateSamplePoints()
         {
             PoissonDiskSampler.Generate(PanelSize, _panelPolygonVertices, _fragmentSize, _seed, _maxFragmentCount, _siteList);
 
@@ -586,96 +680,9 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        /// <summary>
-        /// Rebuilds meshes from existing cells and current thickness, without resampling.
-        /// Removes old fragment objects. Does not create renderers or colliders.
-        /// </summary>
-        public void GenerateFragmentMeshes()
+        private void CreateFragmentObjects()
         {
-            ValidateCellData();
-            if (_thickness <= 0f)
-            {
-                throw new InvalidOperationException("Mesh generation requires a finite positive thickness.");
-            }
-
-            ClearFragmentMeshes();
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
-            {
-                DestructibleCell cell = _cellList[cellIndex];
-                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
-                _cellList[cellIndex] = cell;
-                cell.Mesh.name = $"Fragment Mesh {cell.Id}";
-            }
-            CalculateFragmentMeshDebugInfo();
-        }
-
-        /// <summary>Recreates intact runtime fragments from existing meshes and cell data.</summary>
-        public void CreateRuntimeFragments()
-        {
-            if (Application.isPlaying == false)
-            {
-                throw new InvalidOperationException("Runtime fragments can only be created in play mode.");
-            }
-
-            ValidateCellData();
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
-            {
-                if (_cellList[cellIndex].Mesh == null)
-                {
-                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
-                }
-            }
-            ClearRuntimeFragments();
-            CreateFragmentObjects();
-        }
-
-#if UNITY_EDITOR
-        /// <summary>
-        /// Builds temporary editor meshes and renderers from existing cells into a
-        /// dedicated preview cell collection, leaving baked cell data untouched.
-        /// Does not resample cells or create colliders. ClearPreviewFragments releases the preview.
-        /// </summary>
-        public void GeneratePreview()
-        {
-            if (Application.isPlaying)
-            {
-                Debug.LogError("Preview generation is only available in edit mode.");
-                return;
-            }
-
-            ClearPreviewFragments();
-            ValidateCellData();
-            _previewCellList ??= new List<DestructibleCell>(_cellList.Count);
-            _previewCellList.Clear();
-            _previewCellList.AddRange(_cellList);
-            GeneratePreviewMeshes();
-            CreateFragmentObjects(isPreview: true);
-        }
-
-        /// <summary>Builds temporary preview meshes from the copied preview cells.</summary>
-        private void GeneratePreviewMeshes()
-        {
-            for (int cellIndex = 0; cellIndex < _previewCellList.Count; cellIndex++)
-            {
-                DestructibleCell cell = _previewCellList[cellIndex];
-                cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
-                cell.Mesh.hideFlags = HideFlags.DontSave;
-                cell.Mesh.name = $"Preview Fragment Mesh {cell.Id}";
-                _previewCellList[cellIndex] = cell;
-            }
-        }
-#endif
-
-        private void ValidateCellData()
-        {
-            if (_cellList == null || _cellList.Count == 0)
-            {
-                throw new InvalidOperationException("Generate cell data before building meshes or runtime fragments.");
-            }
-        }
-
-        private void CreateFragmentObjects(bool isPreview = false)
-        {
+            bool isPreview = _mode == Mode.Preview;
             List<DestructibleCell> cellList = isPreview ? _previewCellList : _cellList;
 
             // Preview objects and their components must never be serialized into scenes or builds.
