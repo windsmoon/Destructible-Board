@@ -132,12 +132,19 @@ namespace Windsmoon.DesctructibleBoard
             _ => 4,
         };
 
-        private HideFlags GenerationHideFlags => _mode switch
+        private HideFlags GenerationHideFlags
         {
-            Mode.Preview => HideFlags.DontSave,
-            Mode.PrepareData => HideFlags.DontSave,
-            Mode.Baked => HideFlags.None,
-        };
+            get
+            {
+                return Application.isPlaying ? HideFlags.None : _mode switch
+                    {
+                        Mode.Preview => HideFlags.HideAndDontSave,
+                        Mode.PrepareData => HideFlags.HideAndDontSave,
+                        Mode.Baked => HideFlags.HideAndDontSave,
+                        _ => HideFlags.DontSave
+                    };
+            }
+        }
         #endregion
 
         #region unity methods
@@ -500,7 +507,10 @@ namespace Windsmoon.DesctructibleBoard
             return islands.Count > 0;
         }
 
-        /// <summary> Regenerates the layout and creates temporary edit-mode objects when Preview mode is active.</summary>
+        /// <summary>
+        /// Regenerates cell data, meshes and visible fragment objects in every mode.
+        /// The selected mode controls whether generated resources are saved.
+        /// </summary>
         public void Generate()
         {
             GenerateCellData();
@@ -543,11 +553,12 @@ namespace Windsmoon.DesctructibleBoard
             }
 
             ClearFragmentMeshes();
+            HideFlags hideFlags = GenerationHideFlags;
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
                 DestructibleCell cell = _cellList[cellIndex];
                 cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
-                cell.Mesh.hideFlags = GenerationHideFlags;
+                cell.Mesh.hideFlags = hideFlags;
                 _cellList[cellIndex] = cell;
                 cell.Mesh.name = $"Fragment Mesh {cell.Id}";
             }
@@ -642,10 +653,9 @@ namespace Windsmoon.DesctructibleBoard
 
         private void CreateFragmentObjects()
         {
-            // Preview objects and their components must never be serialized into scenes or builds.
-            HideFlags objectFlags = GenerationHideFlags;
             GameObject fragmentRootObject = new GameObject("Fragments");
-            fragmentRootObject.hideFlags = objectFlags;
+            HideFlags hideFlags = GenerationHideFlags; 
+            fragmentRootObject.hideFlags = hideFlags;
             fragmentRootObject.layer = gameObject.layer;
             Transform root = fragmentRootObject.transform;
             root.SetParent(transform, false);
@@ -655,22 +665,23 @@ namespace Windsmoon.DesctructibleBoard
             {
                 DestructibleCell cell = _cellList[cellIndex];
                 GameObject fragmentObject = new GameObject($"Fragment {cell.Id}");
-                fragmentObject.hideFlags = objectFlags;
+                fragmentObject.hideFlags = hideFlags;
                 fragmentObject.layer = gameObject.layer;
                 fragmentObject.transform.SetParent(root, false);
 
                 MeshFilter meshFilter = fragmentObject.AddComponent<MeshFilter>();
-                meshFilter.hideFlags = objectFlags;
+                meshFilter.hideFlags = hideFlags;
                 meshFilter.sharedMesh = cell.Mesh;
 
                 MeshRenderer meshRenderer = fragmentObject.AddComponent<MeshRenderer>();
-                meshRenderer.hideFlags = objectFlags;
+                meshRenderer.hideFlags = hideFlags;
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
                 if (Application.isPlaying || _mode == Mode.Baked)
                 {
                     MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
+                    meshCollider.hideFlags = hideFlags;
                     meshCollider.convex = true;
                     meshCollider.sharedMesh = cell.Mesh;
                     cell.Collider = meshCollider;
