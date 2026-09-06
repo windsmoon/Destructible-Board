@@ -47,6 +47,8 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField, Min(1)] 
         private int _maxFragmentCount = 300;
         [SerializeField]
+        private bool _needCollider = true;
+        [SerializeField]
         private Material _material;
         
         [SerializeField, HideInInspector, Tooltip("Generated cell data. Replaced when Generate is called.")]
@@ -698,7 +700,7 @@ namespace Windsmoon.DesctructibleBoard
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
-                if (Application.isPlaying || bakeMode == BakeMode.BakObject)
+                if (_needCollider && (bakeMode == BakeMode.BakObject || (Application.isPlaying && bakeMode == BakeMode.BakeData)))
                 {
                     MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
                     meshCollider.hideFlags = hideFlags;
