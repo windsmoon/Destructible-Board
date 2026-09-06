@@ -511,9 +511,19 @@ namespace Windsmoon.DesctructibleBoard
         /// Regenerates cell data, meshes and visible fragment objects in every mode.
         /// The selected mode controls whether generated resources are saved.
         /// </summary>
-        public void Generate()
+        public void GenerateAll()
         {
             GenerateCellData();
+            GenerateFromCellData();
+        }
+
+        /// <summary>
+        /// Rebuilds meshes and intact fragment objects from existing or serialized
+        /// cell data, using the current thickness and material without regenerating topology.
+        /// Requires prepared cell data. Replaces existing fragments and resets damage state.
+        /// </summary>
+        public void GenerateFromCellData()
+        {
             GenerateFragmentMeshes();
             CreateRuntimeFragments();
         }

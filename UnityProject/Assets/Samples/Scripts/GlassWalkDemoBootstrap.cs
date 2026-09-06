@@ -156,7 +156,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             // The reusable board does not choose its own initialization time.
             // This demo generates explicitly after all runtime settings are applied.
             boardObject.SetActive(true);
-            _board.Generate();
+            _board.GenerateAll();
         }
 
         private void CreateCapsule(Material material)
@@ -279,7 +279,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             }
 
             _footsteps.ResetState();
-            _board.Generate();
+            _board.GenerateAll();
             _walker.ResetToSpawn();
             _nextAutomaticResetTime = Time.unscaledTime + 1f;
         }

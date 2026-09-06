@@ -85,7 +85,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
             EditorGUILayout.Space();
             if (GUILayout.Button("Generate"))
             {
-                board.Generate();
+                board.GenerateAll();
                 if (!Application.isPlaying)
                 {
                     EditorUtility.SetDirty(board);
