@@ -331,12 +331,12 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool DestroyCellLogically(int cellId)
         {
-            if (TryGetCell(cellId, out DestructibleCell cell) == false || cell.Destroyed)
+            if (TryGetCell(cellId, out DestructibleCell cell) == false || cell.IsDestroyed)
             {
                 return false;
             }
 
-            cell.Destroyed = true;
+            cell.IsDestroyed = true;
             // List indexing returns a struct copy; persist instance state explicitly.
             _cellList[cellId] = cell;
 
@@ -393,12 +393,12 @@ namespace Windsmoon.DesctructibleBoard
                 foreach (var cellId in _currentSearchLayer)
                 {
                     DestructibleCell cell = _cellList[cellId];
-                    if (cell.Destroyed == false)
+                    if (cell.IsDestroyed == false)
                     {
                         results.Add(new CellSearchResult(cellId, depth));
                     }
 
-                    if (depth == maxDepth || (cell.Destroyed && destroyedCellsBlockPropagation))
+                    if (depth == maxDepth || (cell.IsDestroyed && destroyedCellsBlockPropagation))
                     {
                         continue;
                     }
@@ -466,7 +466,7 @@ namespace Windsmoon.DesctructibleBoard
             BeginCellSearch();
             for (int startCellId = 0; startCellId < _cellList.Count; startCellId++)
             {
-                if (_cellList[startCellId].Destroyed || _searchVisitVersions[startCellId] == _searchVersion)
+                if (_cellList[startCellId].IsDestroyed || _searchVisitVersions[startCellId] == _searchVersion)
                 {
                     continue;
                 }
@@ -486,7 +486,7 @@ namespace Windsmoon.DesctructibleBoard
                     // this component cannot be mistaken for a separate island.
                     foreach (int neighborId in cell.NeighborIdList)
                     {
-                        if (_cellList[neighborId].Destroyed || _searchVisitVersions[neighborId] == _searchVersion)
+                        if (_cellList[neighborId].IsDestroyed || _searchVisitVersions[neighborId] == _searchVersion)
                         {
                             continue;
                         }
@@ -720,7 +720,7 @@ namespace Windsmoon.DesctructibleBoard
                     }
                     cell.GameObject = null;
                     cell.Collider = null;
-                    cell.Destroyed = false;
+                    cell.IsDestroyed = false;
                     _cellList[cellIndex] = cell;
                 }
             }

@@ -177,7 +177,7 @@ namespace Windsmoon.DesctructibleBoard.Editor
                         int visibleCellCount = 0;
                         foreach (int cellId in _islands[islandIndex])
                         {
-                            if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.Destroyed ||
+                            if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.IsDestroyed ||
                                 !_islandVertices.TryGetValue(cellId, out Vector3[] vertices))
                             {
                                 continue;

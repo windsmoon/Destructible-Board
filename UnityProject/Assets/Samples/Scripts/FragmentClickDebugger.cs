@@ -140,7 +140,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 for (int index = 0; index < dropCount && pending.Count > 0; index++)
                 {
                     int cellId = pending.Dequeue();
-                    if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.Destroyed)
+                    if (!board.TryGetCell(cellId, out DestructibleCell cell) || cell.IsDestroyed)
                     {
                         continue;
                     }
@@ -169,7 +169,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
                     continue;
                 }
 
-                if (!board.TryGetCell(neighborId, out DestructibleCell neighbor) || neighbor.Destroyed)
+                if (!board.TryGetCell(neighborId, out DestructibleCell neighbor) || neighbor.IsDestroyed)
                 {
                     continue;
                 }
@@ -231,7 +231,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
         {
             if (board == null ||
                 board.TryGetCell(cellId, out DestructibleCell cell) == false ||
-                cell.Destroyed ||
+                cell.IsDestroyed ||
                 cell.GameObject == null)
             {
                 return false;

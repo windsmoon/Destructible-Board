@@ -177,7 +177,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             foreach (CellSearchResult result in _searchResults)
             {
                 if (!board.TryGetCell(result.CellId, out DestructibleCell cell) ||
-                    cell.Destroyed ||
+                    cell.IsDestroyed ||
                     cell.GameObject == null ||
                     !_pendingCellIds.Add(result.CellId))
                 {
@@ -209,7 +209,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
 
             if (board == null ||
                 !board.TryGetCell(cellId, out DestructibleCell cell) ||
-                cell.Destroyed ||
+                cell.IsDestroyed ||
                 cell.GameObject == null ||
                 cell.GameObject != scheduledObject)
             {
@@ -246,7 +246,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private bool TryDropCell(DestructibleBoard board, int cellId)
         {
             if (!board.TryGetCell(cellId, out DestructibleCell cell) ||
-                cell.Destroyed ||
+                cell.IsDestroyed ||
                 cell.GameObject == null ||
                 !board.DestroyCellLogically(cellId))
             {
