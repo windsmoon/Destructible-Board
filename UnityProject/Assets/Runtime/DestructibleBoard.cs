@@ -642,7 +642,7 @@ namespace Windsmoon.DesctructibleBoard
 
         private void CreateFragmentObjects()
         {
-            bool isPreview = _mode == Mode.Preview;
+            bool isPreview = _mode == Mode.Preview || _mode == Mode.PrepareData;
 
             // Preview objects and their components must never be serialized into scenes or builds.
             HideFlags objectFlags = isPreview ? HideFlags.DontSave : HideFlags.None;
