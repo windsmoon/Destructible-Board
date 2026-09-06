@@ -102,7 +102,7 @@ namespace Windsmoon.DesctructibleBoard
                 return regionCount;
             }
         }
-
+        
         internal IReadOnlyList<DestructibleCell> CellList => _cellList;
 
         private Vector2 PanelSize => _shape switch
@@ -130,6 +130,13 @@ namespace Windsmoon.DesctructibleBoard
             Shape.Sector => SectorArcSegmentCount + 2,
             Shape.RegularPolygon => Mathf.Clamp(_regularPolygonEdgeCount, 3, 64),
             _ => 4,
+        };
+
+        private HideFlags GenerationHideFlags => _mode switch
+        {
+            Mode.Preview => HideFlags.DontSave,
+            Mode.PrepareData => HideFlags.DontSave,
+            Mode.Baked => HideFlags.None,
         };
         #endregion
 
@@ -493,18 +500,15 @@ namespace Windsmoon.DesctructibleBoard
             return islands.Count > 0;
         }
 
-        /// <summary>Regenerates the layout; edit mode keeps data only, as before.</summary>
+        /// <summary> Regenerates the layout and creates temporary edit-mode objects when Preview mode is active.</summary>
         public void Generate()
         {
             GenerateCellData();
-            if (Application.isPlaying)
-            {
-                GenerateFragmentMeshes();
-                CreateRuntimeFragments();
-            }
+            GenerateFragmentMeshes();
+            CreateRuntimeFragments();
         }
 
-        /// <summary>Replaces cell topology and clears all resources derived from the old layout.</summary>
+        /// <summary> Replaces cell topology and clears all resources derived from the old layout.</summary>
         public void GenerateCellData()
         {
             ClearGeneratedData();
@@ -543,20 +547,16 @@ namespace Windsmoon.DesctructibleBoard
             {
                 DestructibleCell cell = _cellList[cellIndex];
                 cell.Mesh = FragmentMeshGenerator.Generate(cell.PolygonVertices, _thickness);
+                cell.Mesh.hideFlags = GenerationHideFlags;
                 _cellList[cellIndex] = cell;
                 cell.Mesh.name = $"Fragment Mesh {cell.Id}";
             }
             CalculateFragmentMeshDebugInfo();
         }
 
-        /// <summary>Recreates intact runtime fragments from existing meshes and cell data.</summary>
+        /// <summary> Recreates intact runtime fragments, or temporary edit-mode preview fragments, from existing meshes and cell data.</summary>
         public void CreateRuntimeFragments()
         {
-            if (Application.isPlaying == false)
-            {
-                throw new InvalidOperationException("Runtime fragments can only be created in play mode.");
-            }
-
             ValidateCellData();
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
             {
@@ -642,11 +642,9 @@ namespace Windsmoon.DesctructibleBoard
 
         private void CreateFragmentObjects()
         {
-            bool isPreview = _mode == Mode.Preview || _mode == Mode.PrepareData;
-
             // Preview objects and their components must never be serialized into scenes or builds.
-            HideFlags objectFlags = isPreview ? HideFlags.DontSave : HideFlags.None;
-            GameObject fragmentRootObject = new GameObject(isPreview ? "Preview Fragments" : "Fragments");
+            HideFlags objectFlags = GenerationHideFlags;
+            GameObject fragmentRootObject = new GameObject("Fragments");
             fragmentRootObject.hideFlags = objectFlags;
             fragmentRootObject.layer = gameObject.layer;
             Transform root = fragmentRootObject.transform;
@@ -670,7 +668,7 @@ namespace Windsmoon.DesctructibleBoard
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
-                if (isPreview == false)
+                if (Application.isPlaying || _mode == Mode.Baked)
                 {
                     MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
                     meshCollider.convex = true;
