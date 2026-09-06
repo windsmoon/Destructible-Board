@@ -49,7 +49,7 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private Material _material;
         
-        [SerializeField, Tooltip("Generated cell data. Replaced when Generate is called.")]
+        [SerializeField, HideInInspector, Tooltip("Generated cell data. Replaced when Generate is called.")]
         private List<DestructibleCell> _cellList;
 
         [Header("Debug")]
