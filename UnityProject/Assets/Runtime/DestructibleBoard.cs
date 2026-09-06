@@ -206,7 +206,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary>
         /// Configures a rectangular panel before runtime generation.
         /// </summary>
-        public void ConfigureRectangle(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, Material material)
+        public void ConfigureRectangle(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, bool needCollider, Material material)
         {
             _shape = Shape.Rectangle;
             _width = Mathf.Max(0.01f, width);
@@ -215,6 +215,7 @@ namespace Windsmoon.DesctructibleBoard
             _fragmentSize = Mathf.Max(0.01f, fragmentSize);
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _needCollider = needCollider;
             _material = material;
         }
 
@@ -223,7 +224,7 @@ namespace Windsmoon.DesctructibleBoard
         /// samples and other procedurally assembled scenes that cannot serialize a
         /// preconfigured component.
         /// </summary>
-        public void ConfigureCircle(float radius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        public void ConfigureCircle(float radius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
         {
             _shape = Shape.Circle;
             _radius = Mathf.Max(0.01f, radius);
@@ -232,13 +233,14 @@ namespace Windsmoon.DesctructibleBoard
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
             _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
             _material = material;
         }
 
         /// <summary>
         /// Configures an elliptical panel before runtime generation.
         /// </summary>
-        public void ConfigureEllipse(float horizontalRadius, float verticalRadius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        public void ConfigureEllipse(float horizontalRadius, float verticalRadius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
         {
             _shape = Shape.Ellipse;
             _ellipseHorizontalRadius = Mathf.Max(0.01f, horizontalRadius);
@@ -248,13 +250,14 @@ namespace Windsmoon.DesctructibleBoard
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
             _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
             _material = material;
         }
 
         /// <summary>
         /// Configures a capsule panel using its full width and height before runtime generation.
         /// </summary>
-        public void ConfigureCapsule(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        public void ConfigureCapsule(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
         {
             _shape = Shape.Capsule;
             _capsuleWidth = Mathf.Max(0.01f, width);
@@ -264,13 +267,14 @@ namespace Windsmoon.DesctructibleBoard
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
             _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
             _material = material;
         }
 
         /// <summary>
         /// Configures a sector panel with an angle in degrees before runtime generation.
         /// </summary>
-        public void ConfigureSector(float radius, float angle, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, Material material)
+        public void ConfigureSector(float radius, float angle, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
         {
             _shape = Shape.Sector;
             _sectorRadius = Mathf.Max(0.01f, radius);
@@ -280,13 +284,14 @@ namespace Windsmoon.DesctructibleBoard
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
             _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
             _material = material;
         }
 
         /// <summary>
         /// Configures a regular polygon panel using its circumradius before runtime generation.
         /// </summary>
-        public void ConfigureRegularPolygon(float radius, int edgeCount, float thickness, float fragmentSize, int seed, int maxFragmentCount, Material material)
+        public void ConfigureRegularPolygon(float radius, int edgeCount, float thickness, float fragmentSize, int seed, int maxFragmentCount, bool needCollider, Material material)
         {
             _shape = Shape.RegularPolygon;
             _regularPolygonRadius = Mathf.Max(0.01f, radius);
@@ -295,6 +300,7 @@ namespace Windsmoon.DesctructibleBoard
             _fragmentSize = Mathf.Max(0.01f, fragmentSize);
             _seed = seed;
             _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _needCollider = needCollider;
             _material = material;
         }
 

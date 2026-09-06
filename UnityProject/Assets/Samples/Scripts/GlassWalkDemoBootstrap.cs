@@ -151,6 +151,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 _randomSeed,
                 _maxFragmentCount,
                 _circleSegments,
+                true,
                 material);
 
             // The reusable board does not choose its own initialization time.
