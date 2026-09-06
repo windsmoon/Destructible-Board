@@ -124,8 +124,32 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        public bool TryGetCellIndex(Vector2 position, out int index)
+        internal bool TryGetCellIndex(Vector2 position, IReadOnlyList<DestructibleCell> destructibleCellList, out int index)
         {
+            if (position.x < _minVertex.x || position.x > _maxVertex.x ||
+                position.y < _minVertex.y || position.y > _maxVertex.y)
+            {
+                index = -1;
+                return false;
+            }
+
+            int column = Mathf.Min(_columnCount - 1, Mathf.FloorToInt((position.x - _minVertex.x) / _gridCellSize));
+            int row = Mathf.Min(_rowCount - 1, Mathf.FloorToInt((position.y - _minVertex.y) / _gridCellSize));
+            int bucketIndex = row * _columnCount + column;
+            int startOffset = _bucketOffsetList[bucketIndex];
+            int endOffset = _bucketOffsetList[bucketIndex + 1];
+            float containmentTolerance = _gridCellSize * _gridCellSize * 0.00001f;
+
+            for (int cellIdIndex = startOffset; cellIdIndex < endOffset; cellIdIndex++)
+            {
+                int cellId = _cellIdList[cellIdIndex];
+                if (ContainsPoint(destructibleCellList[cellId].PolygonVertices, position, containmentTolerance))
+                {
+                    index = cellId;
+                    return true;
+                }
+            }
+
             index = -1;
             return false;
         }
@@ -144,6 +168,23 @@ namespace Windsmoon.DesctructibleBoard
             maxColumn = Mathf.Min(_columnCount - 1, Mathf.FloorToInt((max.x - _minVertex.x) / _gridCellSize));
             minRow = Mathf.FloorToInt((min.y - _minVertex.y) / _gridCellSize);
             maxRow = Mathf.Min(_rowCount - 1, Mathf.FloorToInt((max.y - _minVertex.y) / _gridCellSize));
+        }
+
+        private static bool ContainsPoint(IReadOnlyList<Vector2> polygonVertices, Vector2 position, float tolerance)
+        {
+            // Voronoi cells are counter-clockwise, so interior points stay on the left of every edge.
+            for (int vertexIndex = 0; vertexIndex < polygonVertices.Count; vertexIndex++)
+            {
+                Vector2 start = polygonVertices[vertexIndex];
+                Vector2 edge = polygonVertices[(vertexIndex + 1) % polygonVertices.Count] - start;
+                Vector2 offset = position - start;
+                if (edge.x * offset.y - edge.y * offset.x < -tolerance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
         #endregion
     }
