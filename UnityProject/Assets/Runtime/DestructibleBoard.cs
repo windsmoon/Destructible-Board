@@ -140,8 +140,8 @@ namespace Windsmoon.DesctructibleBoard
                     {
                         BakeMode.NoBake => HideFlags.HideAndDontSave,
                         BakeMode.BakeData => HideFlags.HideAndDontSave,
-                        BakeMode.BakObject => HideFlags.HideAndDontSave,
-                        _ => HideFlags.DontSave
+                        BakeMode.BakObject => HideFlags.HideInHierarchy,
+                        _ => HideFlags.HideAndDontSave
                     };
             }
         }
@@ -463,6 +463,7 @@ namespace Windsmoon.DesctructibleBoard
                 return false;
             }
 
+            islands.Clear();
             BeginCellSearch();
             for (int startCellId = 0; startCellId < _cellList.Count; startCellId++)
             {
@@ -562,6 +563,7 @@ namespace Windsmoon.DesctructibleBoard
                 throw new InvalidOperationException("Mesh generation requires a finite positive thickness.");
             }
 
+            ClearFragmentObjects();
             ClearFragmentMeshes();
             HideFlags hideFlags = GenerationHideFlags;
             for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
