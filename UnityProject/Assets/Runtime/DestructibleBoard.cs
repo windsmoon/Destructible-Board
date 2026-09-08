@@ -773,7 +773,7 @@ namespace Windsmoon.DesctructibleBoard
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
-                if (_needCollider && (bakeMode == BakeMode.BakObject || (Application.isPlaying && bakeMode == BakeMode.BakeData)))
+                if (_needCollider && (Application.isPlaying || bakeMode == BakeMode.BakObject))
                 {
                     MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
                     meshCollider.hideFlags = hideFlags;
