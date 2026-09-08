@@ -6,7 +6,7 @@ namespace Windsmoon.DesctructibleBoard
 {
     /// <summary>
     /// Owns generated panel data and fragments. Cell queries, damage, and derived generation
-    /// require a successful GenerateCellData call or its serialized bake; otherwise they throw
+    /// require ready cell data generated in Play Mode or edit-mode BakeData; otherwise they throw
     /// InvalidOperationException. Configuration, statistics, and cleanup remain available at any time.
     /// </summary>
     public class DestructibleBoard : MonoBehaviour
@@ -97,7 +97,7 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
-        /// <summary>Whether cell topology and its spatial grid were successfully generated.</summary>
+        /// <summary>Whether cell data is ready for use, excluding edit-mode previews outside BakeData.</summary>
         public bool IsCellDataGenerated => _isCellDataGenerated;
 
         public BakeMode BakeMode => bakeMode;
@@ -584,7 +584,9 @@ namespace Windsmoon.DesctructibleBoard
         public void GenerateAll()
         {
             GenerateCellData();
-            GenerateFromCellData();
+            // Fresh topology can produce a preview even when public data access remains disabled.
+            RebuildFragmentMeshes();
+            CreateFragmentObjects();
         }
 
         /// <summary>
@@ -600,7 +602,8 @@ namespace Windsmoon.DesctructibleBoard
 
         /// <summary>
         /// Replaces cell topology and its spatial grid, clearing resources derived from the old layout.
-        /// Marks cell data ready only after every generation step succeeds.
+        /// After all steps succeed, marks data ready in Play Mode or edit-mode BakeData.
+        /// Other edit-mode modes generate preview data without enabling public data access.
         /// </summary>
         public void GenerateCellData()
         {
@@ -623,7 +626,7 @@ namespace Windsmoon.DesctructibleBoard
             _gridData = new GridData();
             _gridData.Build(_cellList);
             CalculateFragmentMeshDebugInfo();
-            _isCellDataGenerated = true;
+            _isCellDataGenerated = Application.isPlaying || (bakeMode == BakeMode.BakeData || bakeMode == BakeMode.BakObject);
         }
 
         /// <summary>
@@ -633,6 +636,26 @@ namespace Windsmoon.DesctructibleBoard
         public void GenerateFragmentMeshes()
         {
             ValidateCellData();
+            RebuildFragmentMeshes();
+        }
+
+        /// <summary> Recreates intact runtime fragments from ready cell data and existing meshes.</summary>
+        public void GenerateFragmentObjects()
+        {
+            ValidateCellData();
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                if (_cellList[cellIndex].Mesh == null)
+                {
+                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
+                }
+            }
+            ClearFragmentObjects();
+            CreateFragmentObjects();
+        }
+
+        private void RebuildFragmentMeshes()
+        {
             if (_thickness <= 0f)
             {
                 throw new InvalidOperationException("Mesh generation requires a finite positive thickness.");
@@ -652,26 +675,11 @@ namespace Windsmoon.DesctructibleBoard
             CalculateFragmentMeshDebugInfo();
         }
 
-        /// <summary> Recreates intact runtime fragments, or temporary edit-mode preview fragments, from existing meshes and cell data.</summary>
-        public void GenerateFragmentObjects()
-        {
-            ValidateCellData();
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
-            {
-                if (_cellList[cellIndex].Mesh == null)
-                {
-                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
-                }
-            }
-            ClearFragmentObjects();
-            CreateFragmentObjects();
-        }
-
         private void ValidateCellData()
         {
             if (_isCellDataGenerated == false)
             {
-                throw new InvalidOperationException("Call GenerateCellData successfully before using generated board data.");
+                throw new InvalidOperationException("Call GenerateCellData successfully in Play Mode or edit-mode BakeData before using generated board data.");
             }
         }
 
