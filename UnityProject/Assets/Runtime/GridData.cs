@@ -30,7 +30,6 @@ namespace Windsmoon.DesctructibleBoard
         internal Vector2 MaxVertex => _maxVertex;
         internal int ColumnCount => _columnCount;
         internal int RowCount => _rowCount;
-        internal bool IsBuilt { get; private set; } = false;
         #endregion
 
         #region methods
@@ -123,14 +122,11 @@ namespace Windsmoon.DesctructibleBoard
                     }
                 }
             }
-            
-            IsBuilt = true;
         }
 
         internal bool TryGetCellIndex(Vector2 position, IReadOnlyList<DestructibleCell> destructibleCellList, out int index)
         {
-            if (IsBuilt == false ||
-                position.x < _minVertex.x || position.x > _maxVertex.x ||
+            if (position.x < _minVertex.x || position.x > _maxVertex.x ||
                 position.y < _minVertex.y || position.y > _maxVertex.y)
             {
                 index = -1;

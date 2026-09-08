@@ -107,7 +107,12 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 SceneView.RepaintAll();
             }
 
-            if (GUILayout.Button("Show Islands"))
+            if (!board.IsCellDataGenerated)
+            {
+                _showIslands = false;
+            }
+
+            if (board.IsCellDataGenerated && GUILayout.Button("Show Islands"))
             {
                 _showIslands = true;
                 RefreshIslandPreview(board);
@@ -162,6 +167,12 @@ namespace Windsmoon.DesctructibleBoard.Editor
             }
 
             DestructibleBoard board = (DestructibleBoard)target;
+            if (!board.IsCellDataGenerated)
+            {
+                _showIslands = false;
+                return;
+            }
+
             IReadOnlyList<Vector2> firstPolygonVertices = board.TryGetCell(0, out DestructibleCell firstCell) ? firstCell.PolygonVertices : null;
             // Logical destruction removes collider entries; Generate replaces polygons.
             // Refresh on those changes instead of allocating query results every repaint.

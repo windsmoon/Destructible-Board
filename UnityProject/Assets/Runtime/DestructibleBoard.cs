@@ -4,6 +4,11 @@ using UnityEngine;
 
 namespace Windsmoon.DesctructibleBoard
 {
+    /// <summary>
+    /// Owns generated panel data and fragments. Cell queries, damage, and derived generation
+    /// require a successful GenerateCellData call or its serialized bake; otherwise they throw
+    /// InvalidOperationException. Configuration, statistics, and cleanup remain available at any time.
+    /// </summary>
     public class DestructibleBoard : MonoBehaviour
     {
         #region fields
@@ -55,6 +60,8 @@ namespace Windsmoon.DesctructibleBoard
         private List<DestructibleCell> _cellList;
         [SerializeField, HideInInspector]
         private GridData _gridData;
+        [SerializeField, HideInInspector]
+        private bool _isCellDataGenerated;
 
         [Header("Debug")]
         [SerializeField]
@@ -90,6 +97,9 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region properties
+        /// <summary>Whether cell topology and its spatial grid were successfully generated.</summary>
+        public bool IsCellDataGenerated => _isCellDataGenerated;
+
         public BakeMode BakeMode => bakeMode;
         public int SamplePointCount => _siteList?.Count ?? 0;
         public int DelaunayTriangleCount => _delaunayTriangleList?.Count ?? 0;
@@ -205,6 +215,7 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool TryGetCell(Collider collider, out DestructibleCell cell)
         {
+            ValidateCellData();
             if (collider != null && _cellIndexByCollider.TryGetValue(collider, out int cellIndex))
             {
                 cell = _cellList[cellIndex];
@@ -321,8 +332,9 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool TryGetCell(int cellId, out DestructibleCell cell)
         {
+            ValidateCellData();
             // Cell IDs are assigned from their list indices during generation.
-            if (_cellList != null && cellId >= 0 && cellId < _cellList.Count && _cellList[cellId].Id == cellId)
+            if (cellId >= 0 && cellId < _cellList.Count)
             {
                 cell = _cellList[cellId];
                 return true;
@@ -335,7 +347,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary>
         /// Gets the cell containing a point in the board's local XY plane without requiring colliders.
         /// Queries the original topology, including destroyed cells, and ignores panel thickness.
-        /// Returns false before generation, after clearing, or outside the generated polygons.
+        /// Requires generated cell data. Returns false outside the generated polygons.
         /// </summary>
         public bool TryGetCell(Vector2 localPosition, out DestructibleCell cell)
         {
@@ -355,13 +367,7 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool TryGetCellId(Vector2 localPosition, out int cellId)
         {
-            cellId = -1;
-            if (_cellList == null || _cellList.Count == 0)
-            {
-                return false;
-            }
-
-            EnsureGridData();
+            ValidateCellData();
             return _gridData.TryGetCellIndex(localPosition, _cellList, out cellId);
         }
 
@@ -370,6 +376,7 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool TryGetCellId(Collider collider, out int cellId)
         {
+            ValidateCellData();
             if (collider != null && _cellIndexByCollider.TryGetValue(collider, out int cellIndex))
             {
                 cellId = _cellList[cellIndex].Id;
@@ -514,21 +521,17 @@ namespace Windsmoon.DesctructibleBoard
         /// cell. Destroyed cells block connectivity and are excluded from results.
         /// Each island's IDs are sorted, and islands are ordered by their lowest ID.
         /// Results are independent snapshots; querying never destroys or detaches cells.
-        /// Returns an empty list before generation or when no islands remain.
+        /// Requires generated cell data. Returns an empty list when no islands remain.
         /// </summary>
         public bool TryGetIslands(List<List<int>> islands)
         {
+            ValidateCellData();
             if (islands == null)
             {
                 throw new ArgumentNullException(nameof(islands));
             }
 
             islands.Clear();
-            
-            if (_cellList == null || _cellList.Count == 0)
-            {
-                return false;
-            }
 
             BeginCellSearch();
             for (int startCellId = 0; startCellId < _cellList.Count; startCellId++)
@@ -595,7 +598,10 @@ namespace Windsmoon.DesctructibleBoard
             GenerateFragmentObjects();
         }
 
-        /// <summary> Replaces cell topology and clears all resources derived from the old layout.</summary>
+        /// <summary>
+        /// Replaces cell topology and its spatial grid, clearing resources derived from the old layout.
+        /// Marks cell data ready only after every generation step succeeds.
+        /// </summary>
         public void GenerateCellData()
         {
             Clear();
@@ -614,8 +620,10 @@ namespace Windsmoon.DesctructibleBoard
             GenerateDelaunayTriangles();
             GenerateVoronoiCells();
             GenerateNeighborGraph();
-            EnsureGridData();
+            _gridData = new GridData();
+            _gridData.Build(_cellList);
             CalculateFragmentMeshDebugInfo();
+            _isCellDataGenerated = true;
         }
 
         /// <summary>
@@ -661,25 +669,10 @@ namespace Windsmoon.DesctructibleBoard
 
         private void ValidateCellData()
         {
-            if (_cellList == null || _cellList.Count == 0)
+            if (_isCellDataGenerated == false)
             {
-                throw new InvalidOperationException("Generate cell data before building meshes or runtime fragments.");
+                throw new InvalidOperationException("Call GenerateCellData successfully before using generated board data.");
             }
-
-            EnsureGridData();
-        }
-
-        private void EnsureGridData()
-        {
-            if ((_gridData != null && _gridData.IsBuilt) || _cellList == null || _cellList.Count == 0)
-            {
-                return;
-            }
-
-            // Older baked boards have cell topology but no serialized spatial grid.
-            GridData gridData = new GridData();
-            gridData.Build(_cellList);
-            _gridData = gridData;
         }
 
         private void GenerateSamplePoints()
@@ -871,6 +864,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary>Clears topology, derived resources, generation statistics and search caches.</summary>
         public void Clear()
         {
+            _isCellDataGenerated = false;
             ClearFragmentObjects();
             ClearFragmentMeshes();
             _cellList?.Clear();
