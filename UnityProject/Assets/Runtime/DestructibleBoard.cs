@@ -75,6 +75,16 @@ namespace Windsmoon.DesctructibleBoard
         private int _fragmentTriangleCount;
         [SerializeField, HideInInspector]
         private Transform _root;
+
+        /// <summary>
+        /// Raised synchronously after a cell first becomes logically destroyed and its
+        /// collider lookup is removed. Provides the board and the destroyed cell snapshot,
+        /// including its existing object, collider, and panel-local geometry.
+        /// Repeated destruction, invalid cells, clearing, and generation do not raise this event.
+        /// Recreating intact fragments allows each cell to raise it again on destruction.
+        /// Subscribers own any visual or physics response and must unsubscribe when no longer needed.
+        /// </summary>
+        public event Action<DestructibleBoard, DestructibleCell> CellDestroyed;
         #endregion
 
         #region properties
@@ -336,8 +346,10 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary>
-        /// Marks a generated cell as destroyed without changing or destroying its
-        /// GameObject, Collider, Mesh, or topology data.
+        /// Marks a generated cell as destroyed, then synchronously raises CellDestroyed.
+        /// Returns false without notification for an invalid or already-destroyed cell.
+        /// The board leaves its GameObject, Collider, Mesh, and topology unchanged;
+        /// event subscribers may detach the object or apply other effects.
         /// </summary>
         public bool DestroyCellLogically(int cellId)
         {
@@ -356,11 +368,14 @@ namespace Windsmoon.DesctructibleBoard
                 _cellIndexByCollider.Remove(cell.Collider);
             }
 
+            // Commit both state and lookup changes before callbacks can query or destroy this cell again.
+            CellDestroyed?.Invoke(this, cell);
             return true;
         }
 
         /// <summary>
-        /// Resolves a generated fragment collider and marks its cell as logically destroyed.
+        /// Resolves an active fragment collider and destroys its cell through the ID overload,
+        /// including the same first-destruction notification. Returns false for an unknown collider.
         /// </summary>
         public bool DestroyCellLogically(Collider collider)
         {

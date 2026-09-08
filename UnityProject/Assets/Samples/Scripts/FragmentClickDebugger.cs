@@ -33,6 +33,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
         [SerializeField, Min(0f), Tooltip("One-time downward impulse in world space when a fragment detaches.")]
         private float _downwardImpulse = 5f;
         private readonly List<List<int>> _islands = new List<List<int>>();
+        private readonly HashSet<DestructibleBoard> _observedBoards = new HashSet<DestructibleBoard>();
         #endregion
 
         #region unity methods
@@ -78,6 +79,12 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 return;
             }
 
+            // Subscribe before starting a wave, which can destroy its first cell immediately.
+            if (_observedBoards.Add(board))
+            {
+                board.CellDestroyed += OnCellDestroyed;
+            }
+
             if (rightClicked)
             {
                 StartCoroutine(DropCellsFromQueue(board, cell.Id));
@@ -95,6 +102,22 @@ namespace Windsmoon.DesctructibleBoard.Samples
             {
                 StartCoroutine(DropCellsByDepth(board, searchResults));
             }
+        }
+
+        private void OnDisable()
+        {
+            // Stop queued damage before removing the response that detaches its fragments.
+            StopAllCoroutines();
+            foreach (DestructibleBoard board in _observedBoards)
+            {
+                if (board != null)
+                {
+                    board.CellDestroyed -= OnCellDestroyed;
+                }
+            }
+
+            _observedBoards.Clear();
+            _islands.Clear();
         }
         #endregion
 
@@ -237,14 +260,19 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 return false;
             }
 
-            // The board only owns the logical state. This sample takes ownership
-            // of the existing fragment object; the scene's trigger handles cleanup.
-            if (board.DestroyCellLogically(cellId) == false)
+            return board.DestroyCellLogically(cellId);
+        }
+
+        private void OnCellDestroyed(DestructibleBoard board, DestructibleCell cell)
+        {
+            GameObject fallingFragment = cell.GameObject;
+            if (fallingFragment == null || !fallingFragment.transform.IsChildOf(board.transform))
             {
-                return false;
+                return;
             }
 
-            GameObject fallingFragment = cell.GameObject;
+            // The event separates logical destruction from this sample's physics response.
+            // Already-detached objects belong to another responder; the scene trigger handles cleanup.
             fallingFragment.name = $"Falling Fragment {cell.Id}";
             fallingFragment.transform.SetParent(null, true);
 
@@ -257,7 +285,6 @@ namespace Windsmoon.DesctructibleBoard.Samples
             rigidbody.useGravity = true;
             rigidbody.isKinematic = false;
             rigidbody.AddForce(Vector3.down * _downwardImpulse, ForceMode.Impulse);
-            return true;
         }
         #endregion
     }
