@@ -34,6 +34,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private float _downwardImpulse = 5f;
         private readonly List<List<int>> _islands = new List<List<int>>();
         private readonly HashSet<DestructibleBoard> _observedBoards = new HashSet<DestructibleBoard>();
+        private readonly Dictionary<DestructibleBoard, HashSet<Coroutine>> _dropCoroutines = new Dictionary<DestructibleBoard, HashSet<Coroutine>>();
         #endregion
 
         #region unity methods
@@ -83,11 +84,12 @@ namespace Windsmoon.DesctructibleBoard.Samples
             if (_observedBoards.Add(board))
             {
                 board.CellDestroyed += OnCellDestroyed;
+                board.Cleared += OnBoardCleared;
             }
 
             if (rightClicked)
             {
-                StartCoroutine(DropCellsFromQueue(board, cell.Id));
+                StartDropCoroutine(board, DropCellsFromQueue(board, cell.Id));
                 return;
             }
 
@@ -100,7 +102,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
 
             if (searchResults.Count > 0)
             {
-                StartCoroutine(DropCellsByDepth(board, searchResults));
+                StartDropCoroutine(board, DropCellsByDepth(board, searchResults));
             }
         }
 
@@ -113,15 +115,73 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 if (board != null)
                 {
                     board.CellDestroyed -= OnCellDestroyed;
+                    board.Cleared -= OnBoardCleared;
                 }
             }
 
             _observedBoards.Clear();
+            _dropCoroutines.Clear();
             _islands.Clear();
         }
         #endregion
 
         #region methods
+        private void StartDropCoroutine(DestructibleBoard board, IEnumerator routine)
+        {
+            if (!_dropCoroutines.TryGetValue(board, out HashSet<Coroutine> coroutines))
+            {
+                coroutines = new HashSet<Coroutine>();
+                _dropCoroutines.Add(board, coroutines);
+            }
+
+            Coroutine coroutine = null;
+            bool isCompleted = false;
+            coroutine = StartCoroutine(Run());
+            // Zero-delay waves may finish before StartCoroutine returns a handle.
+            if (!isCompleted)
+            {
+                coroutines.Add(coroutine);
+            }
+
+            IEnumerator Run()
+            {
+                try
+                {
+                    // Forward waits directly so tracking preserves the original wave timing.
+                    while (routine.MoveNext())
+                    {
+                        yield return routine.Current;
+                    }
+                }
+                finally
+                {
+                    (routine as System.IDisposable)?.Dispose();
+                    isCompleted = true;
+                    if (coroutine != null)
+                    {
+                        coroutines.Remove(coroutine);
+                    }
+                }
+            }
+        }
+
+        private void OnBoardCleared(DestructibleBoard board)
+        {
+            if (_dropCoroutines.TryGetValue(board, out HashSet<Coroutine> coroutines))
+            {
+                _dropCoroutines.Remove(board);
+                // Stopping a routine can remove its handle through the iterator's finally block.
+                foreach (Coroutine coroutine in new List<Coroutine>(coroutines))
+                {
+                    StopCoroutine(coroutine);
+                }
+            }
+
+            board.CellDestroyed -= OnCellDestroyed;
+            board.Cleared -= OnBoardCleared;
+            _observedBoards.Remove(board);
+        }
+
         private IEnumerator DropCellsFromQueue(DestructibleBoard board, int startCellId)
         {
             if (board == null || !board.TryGetCell(startCellId, out DestructibleCell startCell))

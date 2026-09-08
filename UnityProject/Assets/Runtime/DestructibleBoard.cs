@@ -94,6 +94,14 @@ namespace Windsmoon.DesctructibleBoard
         /// Subscribers own any visual or physics response and must unsubscribe when no longer needed.
         /// </summary>
         public event Action<DestructibleBoard, DestructibleCell> CellDestroyed;
+
+        /// <summary>
+        /// Raised synchronously at the end of every Clear call, including clearing an empty board,
+        /// regeneration, and OnDestroy. Cell data is no longer ready when subscribers are notified.
+        /// Subscribers own cancellation of pending work and must unsubscribe when no longer needed.
+        /// Callbacks must not call Clear or regenerate this board recursively.
+        /// </summary>
+        public event Action<DestructibleBoard> Cleared;
         #endregion
 
         #region properties
@@ -869,7 +877,10 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        /// <summary>Clears topology, derived resources, generation statistics and search caches.</summary>
+        /// <summary>
+        /// Clears topology, derived resources, generation statistics and search caches,
+        /// then synchronously raises Cleared so subscribers can cancel pending work.
+        /// </summary>
         public void Clear()
         {
             _isCellDataGenerated = false;
@@ -886,6 +897,7 @@ namespace Windsmoon.DesctructibleBoard
             _nextSearchLayer.Clear();
             Array.Clear(_searchVisitVersions, 0, _searchVisitVersions.Length);
             _searchVersion = 0;
+            Cleared?.Invoke(this);
         }
 
         private Vector2 GetPanelVertex(int vertexIndex)

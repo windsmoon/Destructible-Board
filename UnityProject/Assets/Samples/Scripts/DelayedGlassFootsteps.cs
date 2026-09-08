@@ -36,8 +36,10 @@ namespace Windsmoon.DesctructibleBoard.Samples
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
-        private readonly HashSet<int> _pendingCellIds = new HashSet<int>();
-        private readonly Dictionary<int, GameObject> _pendingObjects = new Dictionary<int, GameObject>();
+        // Cell IDs are local to each board, including when cancellation removes pending entries.
+        private readonly HashSet<(DestructibleBoard Board, int CellId)> _pendingCellIds = new HashSet<(DestructibleBoard, int)>();
+        private readonly Dictionary<(DestructibleBoard Board, int CellId), GameObject> _pendingObjects = new Dictionary<(DestructibleBoard, int), GameObject>();
+        private readonly Dictionary<DestructibleBoard, Dictionary<int, Coroutine>> _pendingCoroutinesByBoard = new Dictionary<DestructibleBoard, Dictionary<int, Coroutine>>();
         private readonly List<CellSearchResult> _searchResults = new List<CellSearchResult>();
         private readonly List<List<int>> _islands = new List<List<int>>();
         private readonly List<GameObject> _fallingFragments = new List<GameObject>();
@@ -91,6 +93,11 @@ namespace Windsmoon.DesctructibleBoard.Samples
         {
             TryPrimeFootContact(collision);
         }
+
+        private void OnDisable()
+        {
+            ResetState();
+        }
         #endregion
 
         #region methods
@@ -121,6 +128,14 @@ namespace Windsmoon.DesctructibleBoard.Samples
         public void ResetState()
         {
             StopAllCoroutines();
+            foreach (DestructibleBoard board in _pendingCoroutinesByBoard.Keys)
+            {
+                if (board != null)
+                {
+                    board.Cleared -= OnBoardCleared;
+                }
+            }
+            _pendingCoroutinesByBoard.Clear();
 
             foreach (GameObject pendingObject in _pendingObjects.Values)
             {
@@ -172,6 +187,13 @@ namespace Windsmoon.DesctructibleBoard.Samples
             }
 
             _nextStepTime = Time.time + _stepInterval;
+            if (!_pendingCoroutinesByBoard.TryGetValue(board, out Dictionary<int, Coroutine> coroutines))
+            {
+                coroutines = new Dictionary<int, Coroutine>();
+                _pendingCoroutinesByBoard.Add(board, coroutines);
+                board.Cleared += OnBoardCleared;
+            }
+
             board.CollectCellsByDepth(cellId, _neighborDepth, _searchResults, true);
 
             foreach (CellSearchResult result in _searchResults)
@@ -179,17 +201,39 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 if (!board.TryGetCell(result.CellId, out DestructibleCell cell) ||
                     cell.IsDestroyed ||
                     cell.GameObject == null ||
-                    !_pendingCellIds.Add(result.CellId))
+                    !_pendingCellIds.Add((board, result.CellId)))
                 {
                     continue;
                 }
 
-                _pendingObjects.Add(result.CellId, cell.GameObject);
+                _pendingObjects.Add((board, result.CellId), cell.GameObject);
                 ShowWarning(cell.GameObject);
 
                 float jitter = Deterministic01(result.CellId) * _delayJitter;
                 float delay = _breakDelay + result.Depth * _neighborDelay + jitter;
-                StartCoroutine(BreakAfterDelay(board, result.CellId, cell.GameObject, delay));
+                Coroutine coroutine = StartCoroutine(BreakAfterDelay(board, result.CellId, cell.GameObject, delay));
+                // An immediate break removes its pending entry before StartCoroutine returns.
+                if (_pendingCellIds.Contains((board, result.CellId)))
+                {
+                    coroutines[result.CellId] = coroutine;
+                }
+            }
+        }
+
+        private void OnBoardCleared(DestructibleBoard board)
+        {
+            board.Cleared -= OnBoardCleared;
+            if (!_pendingCoroutinesByBoard.TryGetValue(board, out Dictionary<int, Coroutine> coroutines))
+            {
+                return;
+            }
+
+            _pendingCoroutinesByBoard.Remove(board);
+            foreach (KeyValuePair<int, Coroutine> pending in coroutines)
+            {
+                StopCoroutine(pending.Value);
+                _pendingCellIds.Remove((board, pending.Key));
+                _pendingObjects.Remove((board, pending.Key));
             }
         }
 
@@ -204,8 +248,12 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 yield return new WaitForSeconds(delay);
             }
 
-            _pendingCellIds.Remove(cellId);
-            _pendingObjects.Remove(cellId);
+            _pendingCellIds.Remove((board, cellId));
+            _pendingObjects.Remove((board, cellId));
+            if (_pendingCoroutinesByBoard.TryGetValue(board, out Dictionary<int, Coroutine> coroutines))
+            {
+                coroutines.Remove(cellId);
+            }
 
             if (board == null ||
                 !board.TryGetCell(cellId, out DestructibleCell cell) ||
@@ -253,8 +301,8 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 return false;
             }
 
-            _pendingCellIds.Remove(cellId);
-            _pendingObjects.Remove(cellId);
+            _pendingCellIds.Remove((board, cellId));
+            _pendingObjects.Remove((board, cellId));
 
             GameObject fragment = cell.GameObject;
             fragment.name = $"Falling Glass Fragment {cell.Id}";
