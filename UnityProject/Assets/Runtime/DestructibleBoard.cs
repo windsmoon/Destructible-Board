@@ -53,6 +53,8 @@ namespace Windsmoon.DesctructibleBoard
         
         [SerializeField, HideInInspector, Tooltip("Generated cell data. Replaced when Generate is called.")]
         private List<DestructibleCell> _cellList;
+        [SerializeField, HideInInspector]
+        private GridData _gridData;
 
         [Header("Debug")]
         [SerializeField]
@@ -331,6 +333,39 @@ namespace Windsmoon.DesctructibleBoard
         }
 
         /// <summary>
+        /// Gets the cell containing a point in the board's local XY plane without requiring colliders.
+        /// Queries the original topology, including destroyed cells, and ignores panel thickness.
+        /// Returns false before generation, after clearing, or outside the generated polygons.
+        /// </summary>
+        public bool TryGetCell(Vector2 localPosition, out DestructibleCell cell)
+        {
+            if (TryGetCellId(localPosition, out int cellId))
+            {
+                cell = _cellList[cellId];
+                return true;
+            }
+
+            cell = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Gets the stable ID of the cell containing a point in the board's local XY plane.
+        /// Includes destroyed cells and ignores thickness. Returns false and ID -1 when no cell contains it.
+        /// </summary>
+        public bool TryGetCellId(Vector2 localPosition, out int cellId)
+        {
+            cellId = -1;
+            if (_cellList == null || _cellList.Count == 0)
+            {
+                return false;
+            }
+
+            EnsureGridData();
+            return _gridData.TryGetCellIndex(localPosition, _cellList, out cellId);
+        }
+
+        /// <summary>
         /// Gets the stable cell ID represented by a generated fragment collider.
         /// </summary>
         public bool TryGetCellId(Collider collider, out int cellId)
@@ -579,6 +614,7 @@ namespace Windsmoon.DesctructibleBoard
             GenerateDelaunayTriangles();
             GenerateVoronoiCells();
             GenerateNeighborGraph();
+            EnsureGridData();
             CalculateFragmentMeshDebugInfo();
         }
 
@@ -629,6 +665,21 @@ namespace Windsmoon.DesctructibleBoard
             {
                 throw new InvalidOperationException("Generate cell data before building meshes or runtime fragments.");
             }
+
+            EnsureGridData();
+        }
+
+        private void EnsureGridData()
+        {
+            if ((_gridData != null && _gridData.IsBuilt) || _cellList == null || _cellList.Count == 0)
+            {
+                return;
+            }
+
+            // Older baked boards have cell topology but no serialized spatial grid.
+            GridData gridData = new GridData();
+            gridData.Build(_cellList);
+            _gridData = gridData;
         }
 
         private void GenerateSamplePoints()
@@ -823,6 +874,7 @@ namespace Windsmoon.DesctructibleBoard
             ClearFragmentObjects();
             ClearFragmentMeshes();
             _cellList?.Clear();
+            _gridData = null;
             _siteList?.Clear();
             _delaunayTriangleList?.Clear();
             _panelPolygonVertices.Clear();
