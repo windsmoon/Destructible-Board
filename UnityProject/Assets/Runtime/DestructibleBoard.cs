@@ -102,6 +102,15 @@ namespace Windsmoon.DesctructibleBoard
         /// Callbacks must not call Clear or regenerate this board recursively.
         /// </summary>
         public event Action<DestructibleBoard> Cleared;
+
+        /// <summary>
+        /// Raised synchronously at the end of every ClearFragmentObjects call, including object
+        /// rebuilding and full Clear. Old instance references and pending damage must be discarded.
+        /// Topology and meshes are preserved by this step; full Clear releases them afterward.
+        /// Subscribers must unsubscribe when no longer needed and must not clear or regenerate
+        /// this board recursively from the callback.
+        /// </summary>
+        public event Action<DestructibleBoard> FragmentObjectsCleared;
         #endregion
 
         #region properties
@@ -795,7 +804,10 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        /// <summary> Clears instance objects and damage state, preserving topology and meshes.</summary>
+        /// <summary>
+        /// Clears instance objects and damage state, preserving topology and meshes,
+        /// then synchronously raises FragmentObjectsCleared so subscribers can cancel old instance work.
+        /// </summary>
         public void ClearFragmentObjects()
         {
             // Invalidate old lookups before deferred GameObject destruction.
@@ -818,15 +830,14 @@ namespace Windsmoon.DesctructibleBoard
                 }
             }
 
-            if (_root == null)
+            if (_root != null)
             {
-                return;
+                GameObject fragmentRootObject = _root.gameObject;
+                _root = null;
+                DestroyFragmentObject(fragmentRootObject);
             }
 
-            GameObject fragmentRootObject = _root.gameObject;
-            _root = null;
-
-            DestroyFragmentObject(fragmentRootObject);
+            FragmentObjectsCleared?.Invoke(this);
         }
 
         private static void DestroyFragmentObject(GameObject fragmentObject)

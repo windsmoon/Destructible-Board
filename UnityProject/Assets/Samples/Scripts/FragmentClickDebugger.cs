@@ -84,7 +84,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             if (_observedBoards.Add(board))
             {
                 board.CellDestroyed += OnCellDestroyed;
-                board.Cleared += OnBoardCleared;
+                board.FragmentObjectsCleared += OnFragmentObjectsCleared;
             }
 
             if (rightClicked)
@@ -115,7 +115,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 if (board != null)
                 {
                     board.CellDestroyed -= OnCellDestroyed;
-                    board.Cleared -= OnBoardCleared;
+                    board.FragmentObjectsCleared -= OnFragmentObjectsCleared;
                 }
             }
 
@@ -165,7 +165,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             }
         }
 
-        private void OnBoardCleared(DestructibleBoard board)
+        private void OnFragmentObjectsCleared(DestructibleBoard board)
         {
             if (_dropCoroutines.TryGetValue(board, out HashSet<Coroutine> coroutines))
             {
@@ -178,7 +178,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             }
 
             board.CellDestroyed -= OnCellDestroyed;
-            board.Cleared -= OnBoardCleared;
+            board.FragmentObjectsCleared -= OnFragmentObjectsCleared;
             _observedBoards.Remove(board);
         }
 

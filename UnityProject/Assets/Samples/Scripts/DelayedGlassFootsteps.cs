@@ -132,7 +132,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             {
                 if (board != null)
                 {
-                    board.Cleared -= OnBoardCleared;
+                    board.FragmentObjectsCleared -= OnFragmentObjectsCleared;
                 }
             }
             _pendingCoroutinesByBoard.Clear();
@@ -191,7 +191,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             {
                 coroutines = new Dictionary<int, Coroutine>();
                 _pendingCoroutinesByBoard.Add(board, coroutines);
-                board.Cleared += OnBoardCleared;
+                board.FragmentObjectsCleared += OnFragmentObjectsCleared;
             }
 
             board.CollectCellsByDepth(cellId, _neighborDepth, _searchResults, true);
@@ -220,9 +220,9 @@ namespace Windsmoon.DesctructibleBoard.Samples
             }
         }
 
-        private void OnBoardCleared(DestructibleBoard board)
+        private void OnFragmentObjectsCleared(DestructibleBoard board)
         {
-            board.Cleared -= OnBoardCleared;
+            board.FragmentObjectsCleared -= OnFragmentObjectsCleared;
             if (!_pendingCoroutinesByBoard.TryGetValue(board, out Dictionary<int, Coroutine> coroutines))
             {
                 return;
