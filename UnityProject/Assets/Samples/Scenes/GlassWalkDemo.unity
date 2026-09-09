@@ -179,6 +179,7 @@ MonoBehaviour:
   _delayJitter: 0.12
   _stepInterval: 0.12
   _minimumPlanarSpeed: 0.2
+  _enableWarningColor: 0
   _warningColor: {r: 1, g: 0.58, b: 0.06, a: 0.92}
   _dropUnsupportedIslands: 1
   _fragmentMass: 0.35

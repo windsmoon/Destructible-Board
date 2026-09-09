@@ -28,6 +28,8 @@ namespace Windsmoon.DesctructibleBoard.Samples
         [SerializeField, Min(0.1f)]
         private float _fragmentLifetime = 7f;
         [SerializeField]
+        private bool _enableWarningColor = false;
+        [SerializeField]
         private Color _warningColor = new Color(1f, 0.58f, 0.06f, 0.92f);
         [SerializeField, Tooltip("Drop every surviving component that no longer reaches the panel boundary.")]
         private bool _dropUnsupportedIslands = true;
@@ -111,7 +113,8 @@ namespace Windsmoon.DesctructibleBoard.Samples
             float fragmentMass,
             float fragmentLifetime,
             Color warningColor,
-            bool dropUnsupportedIslands)
+            bool dropUnsupportedIslands,
+            bool enableWarningColor = false)
         {
             _breakDelay = Mathf.Max(0f, breakDelay);
             _neighborDepth = Mathf.Clamp(neighborDepth, 0, 2);
@@ -123,6 +126,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
             _fragmentLifetime = Mathf.Max(0.1f, fragmentLifetime);
             _warningColor = warningColor;
             _dropUnsupportedIslands = dropUnsupportedIslands;
+            _enableWarningColor = enableWarningColor;
         }
 
         public void ResetState()
@@ -327,7 +331,7 @@ namespace Windsmoon.DesctructibleBoard.Samples
 
         private void ShowWarning(GameObject fragment)
         {
-            if (!fragment.TryGetComponent(out Renderer renderer))
+            if (!_enableWarningColor || !fragment.TryGetComponent(out Renderer renderer))
             {
                 return;
             }

@@ -45,6 +45,8 @@ namespace Windsmoon.DesctructibleBoard.Samples
         [SerializeField, Min(0f)]
         private float _minimumPlanarSpeed = 0.2f;
         [SerializeField]
+        private bool _enableWarningColor = false;
+        [SerializeField]
         private Color _warningColor = new Color(1f, 0.58f, 0.06f, 0.92f);
         [SerializeField]
         private bool _dropUnsupportedIslands = true;
@@ -186,7 +188,8 @@ namespace Windsmoon.DesctructibleBoard.Samples
                 _fragmentMass,
                 _fragmentLifetime,
                 _warningColor,
-                _dropUnsupportedIslands);
+                _dropUnsupportedIslands,
+                _enableWarningColor);
         }
 
         private static void CreateCamera()
