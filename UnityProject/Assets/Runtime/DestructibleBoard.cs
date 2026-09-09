@@ -531,6 +531,17 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool CollectCellsByRadius(Collider collider, float worldRadius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            if (float.IsNaN(worldRadius) || float.IsInfinity(worldRadius) || worldRadius < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(worldRadius), "Radius must be finite and non-negative.");
+            }
+
+            results.Clear();
             if (TryGetCell(collider, out DestructibleCell cell) == false || (cell.IsDestroyed && destroyedCellsBlockPropagation))
             {
                 return false;
@@ -547,6 +558,17 @@ namespace Windsmoon.DesctructibleBoard
         /// </summary>
         public bool CollectCellsByRadius(Vector3 worldPosition, float worldRadius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            if (float.IsNaN(worldRadius) || float.IsInfinity(worldRadius) || worldRadius < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(worldRadius), "Radius must be finite and non-negative.");
+            }
+
+            results.Clear();
             Vector3 localPosition = transform.InverseTransformPoint(worldPosition);
             if (TryGetCell(new Vector2(localPosition.x, localPosition.y), out DestructibleCell startCell) == false || (startCell.IsDestroyed && destroyedCellsBlockPropagation))
             {
