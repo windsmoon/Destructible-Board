@@ -227,6 +227,84 @@ namespace Windsmoon.DesctructibleBoard
         #endregion
 
         #region methods
+        
+        /// <summary>
+        /// Regenerates cell data, meshes and visible fragment objects in every mode.
+        /// The selected mode controls whether generated resources are saved.
+        /// </summary>
+        public void GenerateAll()
+        {
+            GenerateCellData();
+            // Fresh topology can produce a preview even when public data access remains disabled.
+            RebuildFragmentMeshes();
+            CreateFragmentObjects();
+        }
+
+        /// <summary>
+        /// Rebuilds meshes and intact fragment objects from existing or serialized
+        /// cell data, using the current thickness and material without regenerating topology.
+        /// Requires prepared cell data. Replaces existing fragments and resets damage state.
+        /// </summary>
+        public void GenerateFromCellData()
+        {
+            GenerateFragmentMeshes();
+            GenerateFragmentObjects();
+        }
+
+        /// <summary>
+        /// Replaces cell topology and its spatial grid, clearing resources derived from the old layout.
+        /// After all steps succeed, marks data ready in Play Mode or edit-mode BakeData.
+        /// Other edit-mode modes generate preview data without enabling public data access.
+        /// </summary>
+        public void GenerateCellData()
+        {
+            Clear();
+            _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
+            _siteList ??= new List<Vector2>(_maxFragmentCount);
+            _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
+
+            // Sampling, clipping and preview all use the same local-space outline.
+            _panelPolygonVertices.Clear();
+            for (int vertexIndex = 0; vertexIndex < PanelVertexCount; vertexIndex++)
+            {
+                _panelPolygonVertices.Add(GetPanelVertex(vertexIndex));
+            }
+            
+            GenerateSamplePoints();
+            GenerateDelaunayTriangles();
+            GenerateVoronoiCells();
+            GenerateNeighborGraph();
+            _gridData = new GridData();
+            _gridData.Build(_cellList);
+            CalculateFragmentMeshDebugInfo();
+            _isCellDataGenerated = Application.isPlaying || (bakeMode == BakeMode.BakeData || bakeMode == BakeMode.BakObject);
+        }
+
+        /// <summary>
+        /// Rebuilds meshes from existing cells and current thickness, without resampling.
+        /// Removes old fragment objects. Does not create renderers or colliders.
+        /// </summary>
+        public void GenerateFragmentMeshes()
+        {
+            ValidateCellData();
+            RebuildFragmentMeshes();
+        }
+
+        /// <summary> Recreates intact runtime fragments from ready cell data and existing meshes.</summary>
+        public void GenerateFragmentObjects()
+        {
+            ValidateCellData();
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                if (_cellList[cellIndex].Mesh == null)
+                {
+                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
+                }
+            }
+            ClearFragmentObjects();
+            CreateFragmentObjects();
+        }
+        
         /// <summary>
         /// Gets the cell represented by a generated fragment collider.
         /// </summary>
@@ -242,108 +320,7 @@ namespace Windsmoon.DesctructibleBoard
             cell = default;
             return false;
         }
-
-        /// <summary>
-        /// Configures a rectangular panel before runtime generation.
-        /// </summary>
-        public void ConfigureRectangle(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, bool needCollider, Material material)
-        {
-            _shape = Shape.Rectangle;
-            _width = Mathf.Max(0.01f, width);
-            _height = Mathf.Max(0.01f, height);
-            _thickness = Mathf.Max(0.01f, thickness);
-            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
-            _seed = seed;
-            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
-            _needCollider = needCollider;
-            _material = material;
-        }
-
-        /// <summary>
-        /// Configures a circular panel before runtime generation. This is useful for
-        /// samples and other procedurally assembled scenes that cannot serialize a
-        /// preconfigured component.
-        /// </summary>
-        public void ConfigureCircle(float radius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
-        {
-            _shape = Shape.Circle;
-            _radius = Mathf.Max(0.01f, radius);
-            _thickness = Mathf.Max(0.01f, thickness);
-            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
-            _seed = seed;
-            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
-            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
-            _needCollider = needCollider;
-            _material = material;
-        }
-
-        /// <summary>
-        /// Configures an elliptical panel before runtime generation.
-        /// </summary>
-        public void ConfigureEllipse(float horizontalRadius, float verticalRadius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
-        {
-            _shape = Shape.Ellipse;
-            _ellipseHorizontalRadius = Mathf.Max(0.01f, horizontalRadius);
-            _ellipseVerticalRadius = Mathf.Max(0.01f, verticalRadius);
-            _thickness = Mathf.Max(0.01f, thickness);
-            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
-            _seed = seed;
-            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
-            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
-            _needCollider = needCollider;
-            _material = material;
-        }
-
-        /// <summary>
-        /// Configures a capsule panel using its full width and height before runtime generation.
-        /// </summary>
-        public void ConfigureCapsule(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
-        {
-            _shape = Shape.Capsule;
-            _capsuleWidth = Mathf.Max(0.01f, width);
-            _capsuleHeight = Mathf.Max(0.01f, height);
-            _thickness = Mathf.Max(0.01f, thickness);
-            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
-            _seed = seed;
-            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
-            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
-            _needCollider = needCollider;
-            _material = material;
-        }
-
-        /// <summary>
-        /// Configures a sector panel with an angle in degrees before runtime generation.
-        /// </summary>
-        public void ConfigureSector(float radius, float angle, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
-        {
-            _shape = Shape.Sector;
-            _sectorRadius = Mathf.Max(0.01f, radius);
-            _sectorAngle = Mathf.Clamp(angle, 1f, 180f);
-            _thickness = Mathf.Max(0.01f, thickness);
-            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
-            _seed = seed;
-            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
-            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
-            _needCollider = needCollider;
-            _material = material;
-        }
-
-        /// <summary>
-        /// Configures a regular polygon panel using its circumradius before runtime generation.
-        /// </summary>
-        public void ConfigureRegularPolygon(float radius, int edgeCount, float thickness, float fragmentSize, int seed, int maxFragmentCount, bool needCollider, Material material)
-        {
-            _shape = Shape.RegularPolygon;
-            _regularPolygonRadius = Mathf.Max(0.01f, radius);
-            _regularPolygonEdgeCount = Mathf.Clamp(edgeCount, 3, 32);
-            _thickness = Mathf.Max(0.01f, thickness);
-            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
-            _seed = seed;
-            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
-            _needCollider = needCollider;
-            _material = material;
-        }
-
+        
         /// <summary>
         /// Gets a cell by its stable ID without scanning the cell collection.
         /// </summary>
@@ -593,84 +570,216 @@ namespace Windsmoon.DesctructibleBoard
 
             return islands.Count > 0;
         }
-
+        
         /// <summary>
-        /// Regenerates cell data, meshes and visible fragment objects in every mode.
-        /// The selected mode controls whether generated resources are saved.
+        /// Configures a rectangular panel before runtime generation.
         /// </summary>
-        public void GenerateAll()
+        public void ConfigureRectangle(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, bool needCollider, Material material)
         {
-            GenerateCellData();
-            // Fresh topology can produce a preview even when public data access remains disabled.
-            RebuildFragmentMeshes();
-            CreateFragmentObjects();
+            _shape = Shape.Rectangle;
+            _width = Mathf.Max(0.01f, width);
+            _height = Mathf.Max(0.01f, height);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _needCollider = needCollider;
+            _material = material;
         }
 
         /// <summary>
-        /// Rebuilds meshes and intact fragment objects from existing or serialized
-        /// cell data, using the current thickness and material without regenerating topology.
-        /// Requires prepared cell data. Replaces existing fragments and resets damage state.
+        /// Configures a circular panel before runtime generation. This is useful for
+        /// samples and other procedurally assembled scenes that cannot serialize a
+        /// preconfigured component.
         /// </summary>
-        public void GenerateFromCellData()
+        public void ConfigureCircle(float radius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
         {
-            GenerateFragmentMeshes();
-            GenerateFragmentObjects();
+            _shape = Shape.Circle;
+            _radius = Mathf.Max(0.01f, radius);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
+            _material = material;
         }
 
         /// <summary>
-        /// Replaces cell topology and its spatial grid, clearing resources derived from the old layout.
-        /// After all steps succeed, marks data ready in Play Mode or edit-mode BakeData.
-        /// Other edit-mode modes generate preview data without enabling public data access.
+        /// Configures an elliptical panel before runtime generation.
         /// </summary>
-        public void GenerateCellData()
+        public void ConfigureEllipse(float horizontalRadius, float verticalRadius, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
         {
-            Clear();
-            _cellList ??= new List<DestructibleCell>(_maxFragmentCount);
-            _siteList ??= new List<Vector2>(_maxFragmentCount);
-            _delaunayTriangleList ??= new List<DelaunayTriangle>(_maxFragmentCount);
+            _shape = Shape.Ellipse;
+            _ellipseHorizontalRadius = Mathf.Max(0.01f, horizontalRadius);
+            _ellipseVerticalRadius = Mathf.Max(0.01f, verticalRadius);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
+            _material = material;
+        }
 
-            // Sampling, clipping and preview all use the same local-space outline.
+        /// <summary>
+        /// Configures a capsule panel using its full width and height before runtime generation.
+        /// </summary>
+        public void ConfigureCapsule(float width, float height, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
+        {
+            _shape = Shape.Capsule;
+            _capsuleWidth = Mathf.Max(0.01f, width);
+            _capsuleHeight = Mathf.Max(0.01f, height);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
+            _material = material;
+        }
+
+        /// <summary>
+        /// Configures a sector panel with an angle in degrees before runtime generation.
+        /// </summary>
+        public void ConfigureSector(float radius, float angle, float thickness, float fragmentSize, int seed, int maxFragmentCount, int circleSegments, bool needCollider, Material material)
+        {
+            _shape = Shape.Sector;
+            _sectorRadius = Mathf.Max(0.01f, radius);
+            _sectorAngle = Mathf.Clamp(angle, 1f, 180f);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _circleSegments = Mathf.Clamp(circleSegments, 8, 64);
+            _needCollider = needCollider;
+            _material = material;
+        }
+
+        /// <summary>
+        /// Configures a regular polygon panel using its circumradius before runtime generation.
+        /// </summary>
+        public void ConfigureRegularPolygon(float radius, int edgeCount, float thickness, float fragmentSize, int seed, int maxFragmentCount, bool needCollider, Material material)
+        {
+            _shape = Shape.RegularPolygon;
+            _regularPolygonRadius = Mathf.Max(0.01f, radius);
+            _regularPolygonEdgeCount = Mathf.Clamp(edgeCount, 3, 32);
+            _thickness = Mathf.Max(0.01f, thickness);
+            _fragmentSize = Mathf.Max(0.01f, fragmentSize);
+            _seed = seed;
+            _maxFragmentCount = Mathf.Max(1, maxFragmentCount);
+            _needCollider = needCollider;
+            _material = material;
+        }
+        
+        /// <summary>
+        /// Clears topology, derived resources, generation statistics and search caches,
+        /// then synchronously raises Cleared so subscribers can cancel pending work.
+        /// </summary>
+        public void Clear()
+        {
+            _isCellDataGenerated = false;
+            ClearFragmentObjects();
+            ClearFragmentMeshes();
+            _cellList?.Clear();
+            _gridData = null;
+            _siteList?.Clear();
+            _delaunayTriangleList?.Clear();
             _panelPolygonVertices.Clear();
-            for (int vertexIndex = 0; vertexIndex < PanelVertexCount; vertexIndex++)
-            {
-                _panelPolygonVertices.Add(GetPanelVertex(vertexIndex));
-            }
-            
-            GenerateSamplePoints();
-            GenerateDelaunayTriangles();
-            GenerateVoronoiCells();
-            GenerateNeighborGraph();
-            _gridData = new GridData();
-            _gridData.Build(_cellList);
-            CalculateFragmentMeshDebugInfo();
-            _isCellDataGenerated = Application.isPlaying || (bakeMode == BakeMode.BakeData || bakeMode == BakeMode.BakObject);
+            _fragmentVertexCount = 0;
+            _fragmentTriangleCount = 0;
+            _currentSearchLayer.Clear();
+            _nextSearchLayer.Clear();
+            Array.Clear(_searchVisitVersions, 0, _searchVisitVersions.Length);
+            _searchVersion = 0;
+            Cleared?.Invoke(this);
         }
-
+        
         /// <summary>
-        /// Rebuilds meshes from existing cells and current thickness, without resampling.
-        /// Removes old fragment objects. Does not create renderers or colliders.
+        /// Clears instance objects and damage state, preserving topology and meshes,
+        /// then synchronously raises FragmentObjectsCleared so subscribers can cancel old instance work.
         /// </summary>
-        public void GenerateFragmentMeshes()
+        public void ClearFragmentObjects()
         {
-            ValidateCellData();
-            RebuildFragmentMeshes();
-        }
-
-        /// <summary> Recreates intact runtime fragments from ready cell data and existing meshes.</summary>
-        public void GenerateFragmentObjects()
-        {
-            ValidateCellData();
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            // Invalidate old lookups before deferred GameObject destruction.
+            _cellIndexByCollider.Clear();
+            if (_cellList != null)
             {
-                if (_cellList[cellIndex].Mesh == null)
+                for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
                 {
-                    throw new InvalidOperationException($"Cell {cellIndex} has no mesh. Generate fragment meshes first.");
+                    DestructibleCell cell = _cellList[cellIndex];
+                    // Samples can reparent falling fragments outside the generated root.
+                    // They must stop using the board's meshes before those meshes are released.
+                    if (cell.GameObject != null)
+                    {
+                        DestroyFragmentObject(cell.GameObject);
+                    }
+                    cell.GameObject = null;
+                    cell.Collider = null;
+                    cell.IsDestroyed = false;
+                    _cellList[cellIndex] = cell;
                 }
             }
-            ClearFragmentObjects();
-            CreateFragmentObjects();
+
+            if (_root != null)
+            {
+                GameObject fragmentRootObject = _root.gameObject;
+                _root = null;
+                DestroyFragmentObject(fragmentRootObject);
+            }
+
+            FragmentObjectsCleared?.Invoke(this);
         }
 
+        /// <summary>
+        /// Clears generated meshes while preserving cell topology.
+        /// Fragment objects must be cleared before calling this method.
+        /// </summary>
+        public void ClearFragmentMeshes()
+        {
+            if (_cellList == null)
+            {
+                return;
+            }
+
+            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
+            {
+                DestructibleCell cell = _cellList[cellIndex];
+                if (cell.Mesh == null)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(cell.Mesh);
+                }
+                else
+                {
+                    DestroyImmediate(cell.Mesh);
+                }
+
+                cell.Mesh = null;
+                _cellList[cellIndex] = cell;
+            }
+        }
+        
+        private static void DestroyFragmentObject(GameObject fragmentObject)
+        {
+            if (Application.isPlaying)
+            {
+                // Disable immediately so repeated generation in the same frame does
+                // not leave the old fragments visible until deferred destruction.
+                fragmentObject.SetActive(false);
+                Destroy(fragmentObject);
+            }
+            else
+            {
+                DestroyImmediate(fragmentObject);
+            }
+        }
+        
+        
         private void RebuildFragmentMeshes()
         {
             if (_thickness <= 0f)
@@ -802,113 +911,6 @@ namespace Windsmoon.DesctructibleBoard
                 }
                 _cellList[cellIndex] = cell;
             }
-        }
-
-        /// <summary>
-        /// Clears instance objects and damage state, preserving topology and meshes,
-        /// then synchronously raises FragmentObjectsCleared so subscribers can cancel old instance work.
-        /// </summary>
-        public void ClearFragmentObjects()
-        {
-            // Invalidate old lookups before deferred GameObject destruction.
-            _cellIndexByCollider.Clear();
-            if (_cellList != null)
-            {
-                for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
-                {
-                    DestructibleCell cell = _cellList[cellIndex];
-                    // Samples can reparent falling fragments outside the generated root.
-                    // They must stop using the board's meshes before those meshes are released.
-                    if (cell.GameObject != null)
-                    {
-                        DestroyFragmentObject(cell.GameObject);
-                    }
-                    cell.GameObject = null;
-                    cell.Collider = null;
-                    cell.IsDestroyed = false;
-                    _cellList[cellIndex] = cell;
-                }
-            }
-
-            if (_root != null)
-            {
-                GameObject fragmentRootObject = _root.gameObject;
-                _root = null;
-                DestroyFragmentObject(fragmentRootObject);
-            }
-
-            FragmentObjectsCleared?.Invoke(this);
-        }
-
-        private static void DestroyFragmentObject(GameObject fragmentObject)
-        {
-            if (Application.isPlaying)
-            {
-                // Disable immediately so repeated generation in the same frame does
-                // not leave the old fragments visible until deferred destruction.
-                fragmentObject.SetActive(false);
-                Destroy(fragmentObject);
-            }
-            else
-            {
-                DestroyImmediate(fragmentObject);
-            }
-        }
-
-        /// <summary>
-        /// Clears generated meshes while preserving cell topology.
-        /// Fragment objects must be cleared before calling this method.
-        /// </summary>
-        public void ClearFragmentMeshes()
-        {
-            if (_cellList == null)
-            {
-                return;
-            }
-
-            for (int cellIndex = 0; cellIndex < _cellList.Count; cellIndex++)
-            {
-                DestructibleCell cell = _cellList[cellIndex];
-                if (cell.Mesh == null)
-                {
-                    continue;
-                }
-
-                if (Application.isPlaying)
-                {
-                    Destroy(cell.Mesh);
-                }
-                else
-                {
-                    DestroyImmediate(cell.Mesh);
-                }
-
-                cell.Mesh = null;
-                _cellList[cellIndex] = cell;
-            }
-        }
-
-        /// <summary>
-        /// Clears topology, derived resources, generation statistics and search caches,
-        /// then synchronously raises Cleared so subscribers can cancel pending work.
-        /// </summary>
-        public void Clear()
-        {
-            _isCellDataGenerated = false;
-            ClearFragmentObjects();
-            ClearFragmentMeshes();
-            _cellList?.Clear();
-            _gridData = null;
-            _siteList?.Clear();
-            _delaunayTriangleList?.Clear();
-            _panelPolygonVertices.Clear();
-            _fragmentVertexCount = 0;
-            _fragmentTriangleCount = 0;
-            _currentSearchLayer.Clear();
-            _nextSearchLayer.Clear();
-            Array.Clear(_searchVisitVersions, 0, _searchVisitVersions.Length);
-            _searchVersion = 0;
-            Cleared?.Invoke(this);
         }
 
         private Vector2 GetPanelVertex(int vertexIndex)
