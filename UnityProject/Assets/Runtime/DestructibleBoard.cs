@@ -488,7 +488,7 @@ namespace Windsmoon.DesctructibleBoard
         /// <summary>
         /// Finds a cell from a generated fragment collider, then collects its neighbor rings.
         /// </summary>
-        public bool CollectCellsByDepth(Collider collider, int maxDepth, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = false)
+        public bool CollectCellsByDepth(Collider collider, int maxDepth, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
             if (results == null)
             {
@@ -512,109 +512,47 @@ namespace Windsmoon.DesctructibleBoard
 
         /// <summary>
         /// Collects non-destroyed cells reachable through neighbor links whose sites are within
-        /// radius of the start cell's site, measured in the board's local XY plane.
+        /// radius of the start cell's site, measured in world space at the panel's local Z zero.
         /// Sites on the radius are included; cells outside it block traversal. Destroyed cells
         /// are never returned and optionally block traversal. Results are ordered by neighbor
         /// depth, then cell ID, with depth zero at the start cell. Clears the supplied list first.
-        /// Requires generated cell data and a finite, non-negative radius. Returns zero for an invalid ID.
+        /// Requires generated cell data and a finite, non-negative world-space radius.
+        /// Returns true only when at least one cell is collected; invalid IDs return false.
         /// </summary>
-        public int CollectCellsByRadius(int startCellId, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = false)
+        public bool CollectCellsByRadius(int startCellId, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
-            if (results == null)
-            {
-                throw new ArgumentNullException(nameof(results));
-            }
-
-            if (radius < 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be finite and non-negative.");
-            }
-
-            results.Clear();
-            if (TryGetCell(startCellId, out DestructibleCell startCell) == false)
-            {
-                return 0;
-            }
-
-            BeginCellSearch();
-            _currentSearchLayer.Add(startCellId);
-            _searchVisitVersions[startCellId] = _searchVersion;
-            Vector2 startSite = startCell.Site;
-            double radiusSquared = (double)radius * radius;
-
-            for (int depth = 0; _currentSearchLayer.Count > 0; depth++)
-            {
-                // Match the depth query's deterministic ordering within each neighbor ring.
-                _currentSearchLayer.Sort();
-                for (int cellIndex = 0; cellIndex < _currentSearchLayer.Count; cellIndex++)
-                {
-                    int cellId = _currentSearchLayer[cellIndex];
-                    DestructibleCell cell = _cellList[cellId];
-                    if (cell.IsDestroyed == false)
-                    {
-                        results.Add(new CellSearchResult(cellId, depth));
-                    }
-
-                    if (cell.IsDestroyed && destroyedCellsBlockPropagation)
-                    {
-                        continue;
-                    }
-
-                    IReadOnlyList<int> neighborList = cell.NeighborIdList;
-                    for (int neighborIndex = 0; neighborIndex < neighborList.Count; neighborIndex++)
-                    {
-                        int neighborId = neighborList[neighborIndex];
-                        if (_searchVisitVersions[neighborId] == _searchVersion)
-                        {
-                            continue;
-                        }
-
-                        // Distance is relative to the fixed origin, so rejected cells need no revisit.
-                        _searchVisitVersions[neighborId] = _searchVersion;
-                        Vector2 neighborSite = _cellList[neighborId].Site;
-                        double offsetX = (double)neighborSite.x - startSite.x;
-                        double offsetY = (double)neighborSite.y - startSite.y;
-                        if (offsetX * offsetX + offsetY * offsetY > radiusSquared)
-                        {
-                            continue;
-                        }
-
-                        _nextSearchLayer.Add(neighborId);
-                    }
-                }
-
-                (_currentSearchLayer, _nextSearchLayer) = (_nextSearchLayer, _currentSearchLayer);
-                _nextSearchLayer.Clear();
-            }
-
-            return results.Count;
+            return CollectCellsWithinRadius(startCellId, null, radius, results, destroyedCellsBlockPropagation);
         }
 
         /// <summary>
-        /// Resolves an active fragment collider, then collects cells within a finite, non-negative
-        /// radius of its cell's site in board-local units using the ID overload's traversal rules.
-        /// Requires generated cell data. Clears the supplied list and returns false for an unknown collider.
+        /// Resolves an active fragment collider, then uses the ID overload's world-space radius
+        /// and traversal rules. Requires generated cell data and a finite, non-negative radius.
+        /// Clears the supplied list and returns true only when at least one cell is collected.
         /// </summary>
-        public bool CollectCellsByRadius(Collider collider, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = false)
+        public bool CollectCellsByRadius(Collider collider, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
-            if (results == null)
-            {
-                throw new ArgumentNullException(nameof(results));
-            }
-
-            if (float.IsNaN(radius) || float.IsInfinity(radius) || radius < 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be finite and non-negative.");
-            }
-
-            results.Clear();
-            if (TryGetCellId(collider, out int startCellId) == false)
+            if (TryGetCell(collider, out DestructibleCell cell) == false || (cell.IsDestroyed && destroyedCellsBlockPropagation))
             {
                 return false;
             }
+            return CollectCellsByRadius(cell.Id, radius, results, destroyedCellsBlockPropagation);
+        }
 
-            CollectCellsByRadius(startCellId, radius, results, destroyedCellsBlockPropagation);
-            return true;
+        /// <summary>
+        /// Projects a finite world-space position onto the board's local XY plane to find the start cell.
+        /// Uses the original world position as the center and a finite, non-negative world-space radius.
+        /// Distances include the offset from the panel plane and are measured to cell sites at local Z zero.
+        /// Uses the ID overload's traversal rules; the start cell's site must also be within radius.
+        /// Requires generated cell data. Clears the supplied list and returns true only when cells are collected.
+        /// </summary>
+        public bool CollectCellsByRadius(Vector3 position, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
+        {
+            Vector3 localPosition = transform.InverseTransformPoint(position);
+            if (TryGetCell(new Vector2(localPosition.x, localPosition.y), out DestructibleCell startCell) == false || (startCell.IsDestroyed && destroyedCellsBlockPropagation))
+            {
+                return false;
+            }
+            return CollectCellsWithinRadius(startCell.Id, position, radius, results, destroyedCellsBlockPropagation);
         }
 
         /// <summary>
@@ -925,6 +863,95 @@ namespace Windsmoon.DesctructibleBoard
                 DestructibleCell destructibleCell = new DestructibleCell(_cellList.Count, site);
                 _cellList.Add(destructibleCell);
             }
+        }
+
+        private bool CollectCellsWithinRadius(int startCellId, Vector3? position, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            if (float.IsNaN(radius) || float.IsInfinity(radius) || radius < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be finite and non-negative.");
+            }
+
+            results.Clear();
+            if (TryGetCell(startCellId, out DestructibleCell startCell) == false)
+            {
+                return false;
+            }
+
+            // Transform sites instead of scaling the radius, preserving a world-space sphere
+            // even with non-uniform scale or shear inherited from the board's parents.
+            Matrix4x4 localToWorldMatrix = transform.localToWorldMatrix;
+            Vector3 startSite = localToWorldMatrix.MultiplyPoint3x4(new Vector3(startCell.Site.x, startCell.Site.y, 0f));
+            Vector3 center = position ?? startSite;
+            double radiusSquared = (double)radius * radius;
+            if (IsWithinRadius(startSite, center, radiusSquared) == false)
+            {
+                return false;
+            }
+
+            BeginCellSearch();
+            _currentSearchLayer.Add(startCellId);
+            _searchVisitVersions[startCellId] = _searchVersion;
+
+            for (int depth = 0; _currentSearchLayer.Count > 0; depth++)
+            {
+                // Match the depth query's deterministic ordering within each neighbor ring.
+                _currentSearchLayer.Sort();
+                for (int cellIndex = 0; cellIndex < _currentSearchLayer.Count; cellIndex++)
+                {
+                    int cellId = _currentSearchLayer[cellIndex];
+                    DestructibleCell cell = _cellList[cellId];
+                    if (cell.IsDestroyed == false)
+                    {
+                        results.Add(new CellSearchResult(cellId, depth));
+                    }
+
+                    if (cell.IsDestroyed && destroyedCellsBlockPropagation)
+                    {
+                        continue;
+                    }
+
+                    IReadOnlyList<int> neighborList = cell.NeighborIdList;
+                    for (int neighborIndex = 0; neighborIndex < neighborList.Count; neighborIndex++)
+                    {
+                        int neighborId = neighborList[neighborIndex];
+                        if (_searchVisitVersions[neighborId] == _searchVersion)
+                        {
+                            continue;
+                        }
+
+                        // Distance is relative to the fixed origin, so rejected cells need no revisit.
+                        _searchVisitVersions[neighborId] = _searchVersion;
+                        Vector2 neighborSite = _cellList[neighborId].Site;
+                        Vector3 worldSite = localToWorldMatrix.MultiplyPoint3x4(new Vector3(neighborSite.x, neighborSite.y, 0f));
+                        if (IsWithinRadius(worldSite, center, radiusSquared) == false)
+                        {
+                            continue;
+                        }
+
+                        _nextSearchLayer.Add(neighborId);
+                    }
+                }
+
+                (_currentSearchLayer, _nextSearchLayer) = (_nextSearchLayer, _currentSearchLayer);
+                _nextSearchLayer.Clear();
+            }
+
+            return results.Count > 0;
+        }
+
+        // TODO Z
+        private static bool IsWithinRadius(Vector3 position, Vector3 center, double radiusSquared)
+        {
+            double offsetX = (double)position.x - center.x;
+            double offsetY = (double)position.y - center.y;
+            double offsetZ = (double)position.z - center.z;
+            return offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ <= radiusSquared;
         }
 
         private void BeginCellSearch()
