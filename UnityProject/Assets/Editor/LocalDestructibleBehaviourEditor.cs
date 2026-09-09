@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Windsmoon.DesctructibleBoard.Editor
 {
@@ -105,6 +107,15 @@ namespace Windsmoon.DesctructibleBoard.Editor
                 }
 
                 SceneView.RepaintAll();
+            }
+
+            using (new EditorGUI.DisabledScope(Application.isPlaying || EditorUtility.IsPersistent(board)))
+            {
+                if (GUILayout.Button("Clone"))
+                {
+                    CloneBoard(board);
+                    GUIUtility.ExitGUI();
+                }
             }
 
             if (!board.IsCellDataGenerated)
@@ -231,6 +242,80 @@ namespace Windsmoon.DesctructibleBoard.Editor
         #endregion
 
         #region methods
+        private static void CloneBoard(DestructibleBoard source)
+        {
+            Undo.IncrementCurrentGroup();
+            int undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName("Clone Destructible Board");
+
+            Transform sourceTransform = source.transform;
+            GameObject clone = Instantiate(source.gameObject, sourceTransform.parent, false);
+            clone.name = GameObjectUtility.GetUniqueNameForSibling(sourceTransform.parent, source.name);
+            if (sourceTransform.parent == null && clone.scene != source.gameObject.scene)
+            {
+                SceneManager.MoveGameObjectToScene(clone, source.gameObject.scene);
+            }
+            clone.transform.SetSiblingIndex(sourceTransform.GetSiblingIndex() + 1);
+
+            Dictionary<Mesh, Mesh> meshCopies = new Dictionary<Mesh, Mesh>();
+            foreach (DestructibleBoard clonedBoard in clone.GetComponentsInChildren<DestructibleBoard>(true))
+            {
+                using (SerializedObject clonedData = new SerializedObject(clonedBoard))
+                {
+                    SerializedProperty cells = clonedData.FindProperty("_cellList");
+                    for (int cellIndex = 0; cellIndex < cells.arraySize; cellIndex++)
+                    {
+                        SerializedProperty meshProperty = cells.GetArrayElementAtIndex(cellIndex).FindPropertyRelative("_mesh");
+                        Mesh originalMesh = meshProperty.objectReferenceValue as Mesh;
+                        if (originalMesh == null)
+                        {
+                            continue;
+                        }
+
+                        if (!meshCopies.TryGetValue(originalMesh, out Mesh copiedMesh))
+                        {
+                            copiedMesh = Instantiate(originalMesh);
+                            copiedMesh.name = originalMesh.name;
+                            copiedMesh.hideFlags = originalMesh.hideFlags;
+                            meshCopies.Add(originalMesh, copiedMesh);
+                            Undo.RegisterCreatedObjectUndo(copiedMesh, "Clone Fragment Mesh");
+                        }
+
+                        // Never regenerate here: clearing the cloned cells would destroy
+                        // the meshes still shared with the source immediately after Instantiate.
+                        meshProperty.objectReferenceValue = copiedMesh;
+                    }
+
+                    clonedData.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+
+            // Unity remaps hierarchy references when cloning, but sharedMesh remains
+            // external. Rendering, collision and cell ownership must use the same copy.
+            foreach (MeshFilter meshFilter in clone.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (meshFilter.sharedMesh != null && meshCopies.TryGetValue(meshFilter.sharedMesh, out Mesh copiedMesh))
+                {
+                    meshFilter.sharedMesh = copiedMesh;
+                }
+            }
+
+            foreach (MeshCollider meshCollider in clone.GetComponentsInChildren<MeshCollider>(true))
+            {
+                if (meshCollider.sharedMesh != null && meshCopies.TryGetValue(meshCollider.sharedMesh, out Mesh copiedMesh))
+                {
+                    meshCollider.sharedMesh = copiedMesh;
+                }
+            }
+
+            Undo.RegisterCreatedObjectUndo(clone, "Clone Destructible Board");
+            Undo.CollapseUndoOperations(undoGroup);
+            EditorSceneManager.MarkSceneDirty(clone.scene);
+            Selection.activeGameObject = clone;
+            EditorGUIUtility.PingObject(clone);
+            SceneView.RepaintAll();
+        }
+
         private void RefreshIslandPreview(DestructibleBoard board)
         {
             _islands.Clear();
