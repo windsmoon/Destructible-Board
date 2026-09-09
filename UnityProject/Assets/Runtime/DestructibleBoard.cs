@@ -519,9 +519,9 @@ namespace Windsmoon.DesctructibleBoard
         /// Requires generated cell data and a finite, non-negative world-space radius.
         /// Returns true only when at least one cell is collected; invalid IDs return false.
         /// </summary>
-        public bool CollectCellsByRadius(int startCellId, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
+        public bool CollectCellsByRadius(int startCellId, float worldRadius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
-            return CollectCellsWithinRadius(startCellId, null, radius, results, destroyedCellsBlockPropagation);
+            return CollectCellsWithinRadius(startCellId, null, worldRadius, results, destroyedCellsBlockPropagation);
         }
 
         /// <summary>
@@ -529,13 +529,13 @@ namespace Windsmoon.DesctructibleBoard
         /// and traversal rules. Requires generated cell data and a finite, non-negative radius.
         /// Clears the supplied list and returns true only when at least one cell is collected.
         /// </summary>
-        public bool CollectCellsByRadius(Collider collider, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
+        public bool CollectCellsByRadius(Collider collider, float worldRadius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
             if (TryGetCell(collider, out DestructibleCell cell) == false || (cell.IsDestroyed && destroyedCellsBlockPropagation))
             {
                 return false;
             }
-            return CollectCellsByRadius(cell.Id, radius, results, destroyedCellsBlockPropagation);
+            return CollectCellsByRadius(cell.Id, worldRadius, results, destroyedCellsBlockPropagation);
         }
 
         /// <summary>
@@ -545,14 +545,14 @@ namespace Windsmoon.DesctructibleBoard
         /// Uses the ID overload's traversal rules; the start cell's site must also be within radius.
         /// Requires generated cell data. Clears the supplied list and returns true only when cells are collected.
         /// </summary>
-        public bool CollectCellsByRadius(Vector3 position, float radius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
+        public bool CollectCellsByRadius(Vector3 worldPosition, float worldRadius, List<CellSearchResult> results, bool destroyedCellsBlockPropagation = true)
         {
-            Vector3 localPosition = transform.InverseTransformPoint(position);
+            Vector3 localPosition = transform.InverseTransformPoint(worldPosition);
             if (TryGetCell(new Vector2(localPosition.x, localPosition.y), out DestructibleCell startCell) == false || (startCell.IsDestroyed && destroyedCellsBlockPropagation))
             {
                 return false;
             }
-            return CollectCellsWithinRadius(startCell.Id, position, radius, results, destroyedCellsBlockPropagation);
+            return CollectCellsWithinRadius(startCell.Id, worldPosition, worldRadius, results, destroyedCellsBlockPropagation);
         }
 
         /// <summary>
