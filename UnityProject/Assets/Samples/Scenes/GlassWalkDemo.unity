@@ -173,7 +173,7 @@ MonoBehaviour:
   _moveSpeed: 4.2
   _moveAcceleration: 28
   _turnSpeed: 12
-  _breakDelay: 0.65
+  _breakDelay: 0.29
   _neighborDepth: 1
   _neighborDelay: 0.16
   _delayJitter: 0.12
@@ -182,7 +182,7 @@ MonoBehaviour:
   _enableWarningColor: 0
   _warningColor: {r: 1, g: 0.58, b: 0.06, a: 0.92}
   _dropUnsupportedIslands: 1
-  _fragmentMass: 0.35
+  _fragmentMass: 5
   _fragmentLifetime: 7
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
