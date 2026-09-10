@@ -4,6 +4,6 @@
     {
         NoBake = 1,
         BakeData = 2,
-        BakObject = 3,
+        BakeObject = 3,
     }
 }

@@ -183,7 +183,7 @@ namespace Windsmoon.DesctructibleBoard
                     {
                         BakeMode.NoBake => HideFlags.HideAndDontSave,
                         BakeMode.BakeData => HideFlags.HideAndDontSave,
-                        BakeMode.BakObject => HideFlags.HideInHierarchy,
+                        BakeMode.BakeObject => HideFlags.HideInHierarchy,
                         _ => HideFlags.HideAndDontSave
                     };
             }
@@ -277,7 +277,7 @@ namespace Windsmoon.DesctructibleBoard
             _gridData = new GridData();
             _gridData.Build(_cellList);
             CalculateFragmentMeshDebugInfo();
-            _isCellDataGenerated = Application.isPlaying || (bakeMode == BakeMode.BakeData || bakeMode == BakeMode.BakObject);
+            _isCellDataGenerated = Application.isPlaying || (bakeMode == BakeMode.BakeData || bakeMode == BakeMode.BakeObject);
         }
 
         /// <summary>
@@ -1055,7 +1055,7 @@ namespace Windsmoon.DesctructibleBoard
                 meshRenderer.sharedMaterial = _material;
                 cell.GameObject = fragmentObject;
 
-                if (_needCollider && (Application.isPlaying || bakeMode == BakeMode.BakObject))
+                if (_needCollider && (Application.isPlaying || bakeMode == BakeMode.BakeObject))
                 {
                     MeshCollider meshCollider = fragmentObject.AddComponent<MeshCollider>();
                     meshCollider.hideFlags = hideFlags;
