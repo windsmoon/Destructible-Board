@@ -67,6 +67,8 @@ namespace Windsmoon.DesctructibleBoard
         [SerializeField]
         private bool _enableDebugMode = false;
         [SerializeField]
+        private bool _enablePoissonDiskDebug = false;
+        [SerializeField]
         private bool _enableDelaunayDebug = false;
         [SerializeField]
         private bool _enableVoronoiDebug = false;
@@ -207,6 +209,11 @@ namespace Windsmoon.DesctructibleBoard
 
             if (_enableDebugMode && _cellList != null)
             {
+                if (_enablePoissonDiskDebug)
+                {
+                    DebugPoissonDisk();
+                }
+
                 // Serialized cells can load before the transient triangulation caches exist.
                 if (_enableDelaunayDebug && _siteList != null && _delaunayTriangleList != null)
                 {
@@ -1182,14 +1189,19 @@ namespace Windsmoon.DesctructibleBoard
             }
         }
 
-        private void DebugDelaunay()
+        private void DebugPoissonDisk()
         {
+            Gizmos.color = Color.cyan;
             float siteRadius = Mathf.Max(0.01f, _fragmentSize * 0.08f);
+            // Cell sites survive serialization even when the transient sampling cache is absent.
             foreach (DestructibleCell cell in _cellList)
             {
                 Gizmos.DrawSphere(new Vector3(cell.Site.x, cell.Site.y, 0f), siteRadius);
             }
+        }
 
+        private void DebugDelaunay()
+        {
             Gizmos.color = Color.yellow;
             foreach (DelaunayTriangle triangle in _delaunayTriangleList)
             {
